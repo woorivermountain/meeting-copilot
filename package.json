@@ -1,0 +1,31 @@
+{
+  "name": "meeting-copilot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "eval": "vitest run tests/evals.test.ts --reporter=verbose"
+  },
+  "dependencies": {
+    "nuxt": "4.5.2",
+    "openai": "7.5.0",
+    "postgres": "3.4.9",
+    "stripe": "22.5.0",
+    "vue": "3.5.41",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.13",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11",
+    "vue-tsc": "3.3.11"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
