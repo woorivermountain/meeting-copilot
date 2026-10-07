@@ -9,6 +9,7 @@ import KnowledgePage from './features/knowledge/KnowledgePage.vue'
 import UsagePage from './features/usage/UsagePage.vue'
 import { auth,authService } from './features/auth/AuthService'
 import './styles.css'
+// Release identity is rendered by the app shell so every route shows the same build state.
 const router=createRouter({history:createWebHistory(),routes:[{path:'/',redirect:'/teams'},{path:'/login',component:LoginPage},{path:'/teams',component:TeamsPage},{path:'/teams/:team',component:MeetingsPage},{path:'/meetings/:meeting',component:MeetingPage},{path:'/:pathMatch(.*)*',redirect:'/teams'}]})
 router.addRoute({path:'/teams/:team/knowledge',component:KnowledgePage})
 router.addRoute({path:'/teams/:team/usage',component:UsagePage})
