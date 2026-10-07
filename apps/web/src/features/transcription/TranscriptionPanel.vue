@@ -1,0 +1,24 @@
+<script setup lang="ts">
+import { ref,reactive,computed,onMounted,onBeforeUnmount,watch } from 'vue'
+import { SpeechSession,type RecognitionEngine,type SpeechState } from './SpeechSession'
+import { MicrophoneInput,type MicrophoneState } from './MicrophoneInput'
+import type { Segment } from '../meeting/MeetingService'
+const props=defineProps<{modelValue:Segment[];disabled:boolean}>(),emit=defineEmits<{ 'update:modelValue':[Segment[]];active:[boolean] }>()
+const state=reactive<SpeechState>({status:'idle',interim:'',error:'',audio:false}),mic=reactive<MicrophoneState>({status:'idle',level:0,error:''})
+const consent=ref(false),supported=ref(false),manual=ref(''),limit=ref('')
+let session:SpeechSession|undefined,request=0,preview=false
+const microphone=new MicrophoneInput(next=>Object.assign(mic,next))
+const running=computed(()=>['starting','listening','reconnecting','stopping'].includes(state.status)),busy=computed(()=>running.value||mic.status==='requesting'||mic.status==='ready')
+const labels={idle:'전사 대기',starting:'음성 인식 연결 중',listening:'음성 인식 중',reconnecting:'음성 인식 재연결 중',stopping:'마지막 문장 처리 중',error:'음성 인식 오류',unsupported:'음성 인식 미지원'}
+function append(text:string){if(!text.trim())return;if(props.modelValue.length>=500){limit.value='회의당 최대 500문장입니다. 현재 기록을 저장하고 새 회의를 시작해 주세요.';stop();return}emit('update:modelValue',[...props.modelValue,{id:crypto.randomUUID(),receivedAt:new Date().toISOString(),text:text.trim().slice(0,4000)}])}
+onMounted(()=>{const w=window as unknown as {SpeechRecognition?:new()=>RecognitionEngine;webkitSpeechRecognition?:new()=>RecognitionEngine};const Ctor=w.SpeechRecognition||w.webkitSpeechRecognition;supported.value=!!Ctor;if(Ctor)session=new SpeechSession(new Ctor(),s=>Object.assign(state,s),append);else state.status='unsupported'})
+async function start(onlyMic=false){if(running.value||mic.status==='requesting'||props.disabled||!onlyMic&&!consent.value)return;preview=onlyMic;const current=++request;if(await microphone.start()&&current===request&&!onlyMic)session?.start()}
+function stop(){request++;preview=false;session?.stop();microphone.stop()}
+watch(()=>state.status,status=>{if(!preview&&['idle','error'].includes(status))microphone.stop()})
+watch(()=>mic.status,status=>{if(status==='error')session?.stop()})
+watch(busy,value=>emit('active',value))
+watch(()=>props.disabled,value=>{if(value)stop()})
+onBeforeUnmount(()=>{request++;session?.dispose();microphone.stop();emit('active',false)})
+function edit(id:string,text:string){emit('update:modelValue',props.modelValue.map(s=>s.id===id?{...s,text}:s))}
+</script>
+<template><div><div class="panel"><h2>음성 입력</h2><p>시스템 기본 마이크를 사용합니다. ‘마이크만 확인’으로 입력 신호를 먼저 확인하세요.</p><label for="mic-meter">마이크 {{mic.status==='ready'?'연결됨':mic.status==='requesting'?'권한 응답 대기':'꺼짐'}}</label><meter id="mic-meter" min="0" max="100" :value="mic.level"/><p role="status">{{labels[state.status]}}</p><p v-if="!supported" class="notice">이 환경은 음성 인식을 지원하지 않습니다. 같은 주소를 일반 Chrome에서 열거나 아래 수동 기록을 사용하세요.</p><p v-if="mic.error||state.error||limit" role="alert" class="notice error">{{mic.error||state.error||limit}}</p><label class="check"><input v-model="consent" type="checkbox" :disabled="running">참석자에게 전사를 안내했으며, 브라우저 음성 인식 서비스로 음성이 전달될 수 있음을 확인했습니다.</label><div class="actions" style="margin-top:20px"><button class="secondary" :disabled="disabled||running||mic.status==='requesting'" @click="start(true)">마이크만 확인</button><button :disabled="disabled||!consent||!supported||running||mic.status==='requesting'" @click="start(false)">전사 시작</button><button class="secondary" :disabled="!busy" @click="stop">입력 중지</button></div><p v-if="mic.status==='requesting'">브라우저의 마이크 권한 창에 응답해 주세요. 입력 중지로 대기를 취소할 수 있습니다.</p></div><div class="section-head" style="margin-top:32px"><h2>전사 기록</h2><span>{{modelValue.length}}문장 · AI 자동 호출 없음</span></div><p v-if="!modelValue.length&&!state.interim" class="empty">아직 기록이 없습니다. 실제 음성을 입력하거나 아래에 직접 작성하세요.</p><ol class="speech-lines"><li v-for="(line,index) in modelValue" :key="line.id"><label :for="`segment-${line.id}`">{{index+1}} · {{new Date(line.receivedAt).toLocaleTimeString('ko-KR')}} 수신</label><textarea :id="`segment-${line.id}`" :value="line.text" :aria-label="`전사 문장 ${index+1} 수정`" rows="2" maxlength="4000" :disabled="disabled" @input="edit(line.id,($event.target as HTMLTextAreaElement).value)"/></li></ol><div v-if="state.interim" class="interim"><strong>인식 중 · 미확정</strong><p>{{state.interim}}</p></div><form class="inline-form" @submit.prevent="append(manual);manual=''"><label>수동 기록<input v-model="manual" required maxlength="4000" :disabled="disabled" placeholder="음성 입력이 어려울 때 직접 작성"></label><button :disabled="disabled||!manual.trim()">기록 추가</button></form><p class="record-note">지금 입력하는 원문은 검토 후 저장하기 전까지 이 탭에만 남습니다. 화자 자동 식별은 하지 않습니다. 표시 시각은 음성 발생 시각이 아니라 결과 수신 시각입니다.</p></div></template>

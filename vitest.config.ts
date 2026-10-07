@@ -6,6 +6,7 @@ export default defineConfig({
     alias: { '#shared': fileURLToPath(new URL('./shared', import.meta.url)) }
   },
   test: {
+    include: ['tests/**/*.test.ts'],
     environment: 'node',
     globals: true,
     coverage: { reporter: ['text', 'html'] }

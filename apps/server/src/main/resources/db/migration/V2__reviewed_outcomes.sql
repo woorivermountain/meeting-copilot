@@ -1,0 +1,2 @@
+create table meeting_outcomes (id uuid primary key, meeting_id uuid not null references app_meetings(id), kind varchar(12) not null check(kind in ('DECISION','ACTION','ISSUE')), text varchar(2000) not null, owner_id uuid references app_users(id), due_date date, status varchar(10) not null check(status in ('TODO','DOING','DONE')), version integer not null default 0, approved_by uuid not null references app_users(id), created_at timestamp with time zone not null);
+create index outcomes_meeting_idx on meeting_outcomes(meeting_id,created_at);

@@ -1,0 +1,36 @@
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${SERVER_PORT:8081}
+  servlet:
+    session:
+      timeout: 8h
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${COOKIE_SECURE:false}
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:h2:file:./data/meeting-copilot;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH}
+    username: ${DATABASE_USER:sa}
+    password: ${DATABASE_PASSWORD:}
+  flyway:
+    enabled: true
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+  mvc:
+    log-request-details: false
+  h2:
+    console:
+      enabled: false
+copilot:
+  llm:
+    enabled: ${LLM_ENABLED:true}
+    base-url: ${LLM_BASE_URL:http://127.0.0.1:11434/v1}
+    model: ${LLM_MODEL:qwen3:8b}
+    api-key: ${LLM_API_KEY:}
+    fallback:
+      allowed: ${LLM_FALLBACK_ALLOWED:false}
+      base-url: ${LLM_FALLBACK_BASE_URL:}
+      model: ${LLM_FALLBACK_MODEL:}
+      api-key: ${LLM_FALLBACK_API_KEY:}
