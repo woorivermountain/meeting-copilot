@@ -1,6 +1,10 @@
+import { fileURLToPath } from 'node:url'
+
+const serviceWebSources = fileURLToPath(new URL('./apps/web/**/*', import.meta.url))
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-08-01',
-  devtools: { enabled: true },
+  devtools: { enabled: import.meta.dev },
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
     openaiApiKey: '',
@@ -24,6 +28,7 @@ export default defineNuxtConfig({
   },
   typescript: {
     strict: true,
+    tsConfig: { exclude: [serviceWebSources] },
     // CI runs `nuxt typecheck` separately. Vite's production transform should not
     // invoke a second checker with source files and a tsconfig simultaneously.
     typeCheck: false

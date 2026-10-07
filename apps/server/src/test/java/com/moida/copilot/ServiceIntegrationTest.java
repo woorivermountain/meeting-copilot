@@ -26,14 +26,33 @@ class ServiceIntegrationTest {
   }
   String id(MvcResult result) throws Exception{return json.readTree(result.getResponse().getContentAsString()).path("id").asText();}
   UUID user(MockHttpSession session) throws Exception{return UUID.fromString(id(mvc.perform(get("/api/auth/me").session(session)).andReturn()));}
+  @Test void manualSpeakerLabelsPersistAcrossRevisionsAndLegacySegmentsRemainReadable() throws Exception {
+    var owner=signup("speakers@example.test");
+    String team=id(mvc.perform(post("/api/teams").session(owner).with(csrf()).contentType("application/json").content("{\"name\":\"발화자 테스트\"}")).andReturn());
+    String meeting=id(mvc.perform(post("/api/teams/"+team+"/meetings").session(owner).with(csrf()).contentType("application/json").content("{\"title\":\"수동 발화자\"}")).andReturn());
+    String endpoint="/api/meetings/"+meeting+"/transcript";
+    var segment=new HashMap<String,Object>(Map.of("id",UUID.randomUUID(),"receivedAt","2026-10-07T01:00:00Z","text","금요일에 출시합니다."));
+    var payload=new HashMap<String,Object>(Map.of("version",0,"approved",true,"segments",List.of(segment)));
+    mvc.perform(put(endpoint).session(owner).with(csrf()).contentType("application/json").content(json.writeValueAsString(payload))).andExpect(status().isOk());
+    payload.put("version",1);segment.put("speakerLabel","김민수 · 개발");
+    mvc.perform(put(endpoint).session(owner).with(csrf()).contentType("application/json").content(json.writeValueAsString(payload))).andExpect(status().isOk());
+    mvc.perform(get(endpoint).session(owner)).andExpect(status().isOk()).andExpect(jsonPath("segments[0].speakerLabel").value("김민수 · 개발"));
+    mvc.perform(get(endpoint+"?version=1").session(owner)).andExpect(status().isOk()).andExpect(jsonPath("segments[0].speakerLabel").doesNotExist());
+    payload.put("version",2);segment.put("speakerLabel","가".repeat(81));
+    mvc.perform(put(endpoint).session(owner).with(csrf()).contentType("application/json").content(json.writeValueAsString(payload))).andExpect(status().isBadRequest());
+    mvc.perform(get(endpoint).session(owner)).andExpect(jsonPath("version").value(2));
+  }
   @Test void toolsHonorUserAndAgentIntersectionAndRevocation() throws Exception {
     var owner=signup("knowledge-owner@example.test");var member=signup("knowledge-member@example.test");UUID ownerId=user(owner),memberId=user(member);
     var created=json.readTree(mvc.perform(post("/api/teams").session(owner).with(csrf()).contentType("application/json").content("{\"name\":\"자료 팀\"}")).andReturn().getResponse().getContentAsString());UUID team=UUID.fromString(created.path("id").asText());teamService.join(memberId,created.path("inviteCode").asText());
     UUID box=knowledge.box(team,ownerId,"개발","제품"),doc=knowledge.document(team,ownerId,box,"일정","출시는 금요일입니다.",true),agent=knowledge.agent(team,ownerId,"개발 담당","제품",List.of(box));
     org.junit.jupiter.api.Assertions.assertTrue(knowledge.agentDocuments(team,memberId,agent).isEmpty());
     knowledge.grant(team,ownerId,box,memberId,true);org.junit.jupiter.api.Assertions.assertEquals(doc,knowledge.agentDocuments(team,memberId,agent).getFirst().id());
+    when(llm.externalConsentRequired()).thenReturn(true);doCallRealMethod().when(llm).requireApproval(anyBoolean());
+    mvc.perform(post("/api/teams/"+team+"/knowledge/agents/"+agent+"/ask").session(member).with(csrf()).contentType("application/json").content("{\"question\":\"출시\",\"approved\":true}")).andExpect(status().isForbidden());
+    verify(llm,never()).completeApproved(anyList(),anyList(),anyBoolean());when(llm.externalConsentRequired()).thenReturn(false);
     var call=json.readTree("{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"search_documents\",\"arguments\":\"{\\\"query\\\":\\\"출시\\\"}\"}}]}");
-    when(llm.complete(anyList(),anyList())).thenAnswer(invocation->{List<Map<String,Object>> messages=invocation.getArgument(0);if(messages.size()==2)return call;var payload=json.readTree((String)messages.getLast().get("content"));String sid=payload.path("sources").path(0).path("sourceId").asText();return json.createObjectNode().put("content",json.writeValueAsString(Map.of("answer","금요일 출시입니다.","sourceIds",List.of(sid))));});
+    when(llm.completeApproved(anyList(),anyList(),anyBoolean())).thenAnswer(invocation->{List<Map<String,Object>> messages=invocation.getArgument(0);if(messages.size()==2)return call;var payload=json.readTree((String)messages.getLast().get("content"));String sid=payload.path("sources").path(0).path("sourceId").asText();return json.createObjectNode().put("content",json.writeValueAsString(Map.of("answer","금요일 출시입니다.","sourceIds",List.of(sid))));});
     var result=json.valueToTree(runner.ask(team,memberId,agent,"출시 일정"));org.junit.jupiter.api.Assertions.assertEquals("DRAFT",result.path("status").asText());org.junit.jupiter.api.Assertions.assertEquals("출시는 금요일입니다.",result.path("citations").path(0).path("quote").asText());
     knowledge.grant(team,ownerId,box,memberId,false);org.junit.jupiter.api.Assertions.assertTrue(knowledge.agentDocuments(team,memberId,agent).isEmpty());
     org.junit.jupiter.api.Assertions.assertThrows(org.springframework.web.server.ResponseStatusException.class,()->knowledge.grant(team,memberId,box,memberId,true));
@@ -53,10 +72,25 @@ class ServiceIntegrationTest {
     mvc.perform(put("/api/meetings/"+meeting+"/transcript").session(owner).with(csrf()).contentType("application/json").content(json.writeValueAsString(payload))).andExpect(status().isConflict());
     mvc.perform(get("/api/meetings/"+meeting+"/transcript/history").session(owner)).andExpect(status().isOk()).andExpect(jsonPath("length()").value(1));
     var answer=Map.of("items",List.of(Map.of("kind","ACTION","text","김민수 초안 작성","sourceIds",List.of(source))));
-    when(llm.complete(anyList(),anyList())).thenReturn(json.createObjectNode().put("content",json.writeValueAsString(answer)));
+    when(llm.externalConsentRequired()).thenReturn(true);doCallRealMethod().when(llm).requireApproval(anyBoolean());
+    mvc.perform(post("/api/meetings/"+meeting+"/summary").session(owner).with(csrf()).contentType("application/json").content("{\"version\":1,\"approved\":true}")).andExpect(status().isForbidden());
+    verify(llm,never()).completeApproved(anyList(),anyList(),anyBoolean());when(llm.externalConsentRequired()).thenReturn(false);
+    when(llm.completeApproved(anyList(),anyList(),anyBoolean())).thenReturn(json.createObjectNode().put("content",json.writeValueAsString(answer)));
     mvc.perform(post("/api/meetings/"+meeting+"/summary").session(owner).with(csrf()).contentType("application/json").content("{\"version\":1,\"approved\":true}")).andExpect(status().isOk()).andExpect(jsonPath("items[0].sources[0].id").value(source));
-    when(llm.complete(anyList(),anyList())).thenReturn(json.createObjectNode().put("content","{\"items\":[{\"kind\":\"ACTION\",\"text\":\"허위\",\"sourceIds\":[\"missing\"]}]}"));
+    mvc.perform(get("/api/teams/"+team+"/usage?days=30").session(owner)).andExpect(status().isOk()).andExpect(jsonPath("requests").value(1)).andExpect(jsonPath("estimatedRequests").value(1)).andExpect(jsonPath("recent[0].feature").value("MEETING_SUMMARY"));
+    when(llm.completeApproved(anyList(),anyList(),anyBoolean())).thenReturn(json.createObjectNode().put("content","{\"items\":[{\"kind\":\"ACTION\",\"text\":\"허위\",\"sourceIds\":[\"missing\"]}]}"));
     mvc.perform(post("/api/meetings/"+meeting+"/summary").session(owner).with(csrf()).contentType("application/json").content("{\"version\":1,\"approved\":true}")).andExpect(status().isBadGateway());
     mvc.perform(get("/api/meetings/"+meeting+"/transcript").session(owner)).andExpect(status().isOk()).andExpect(jsonPath("version").value(1));
+  }
+  @Test void unsavedSnapshotCanBeSummarizedWithoutSavingTranscript() throws Exception {
+    var owner=signup("snapshot-summary@example.test");
+    String team=id(mvc.perform(post("/api/teams").session(owner).with(csrf()).contentType("application/json").content("{\"name\":\"스냅샷 팀\"}")).andReturn());
+    String meeting=id(mvc.perform(post("/api/teams/"+team+"/meetings").session(owner).with(csrf()).contentType("application/json").content("{\"title\":\"저장 전 요약\"}")).andReturn());
+    String source=UUID.randomUUID().toString();
+    when(llm.completeApproved(anyList(),anyList(),anyBoolean())).thenReturn(json.createObjectNode().put("content","{\"items\":[{\"kind\":\"ACTION\",\"text\":\"월요일에 초안을 검토한다.\",\"sourceRefs\":[\"S1\"]}]}").put("_model","snapshot-test"));
+    var body=Map.of("version",0,"approved",true,"segments",List.of(Map.of("id",source,"receivedAt","2026-10-07T02:00:00Z","text","월요일에 초안을 검토하기로 했습니다.")));
+    mvc.perform(post("/api/meetings/"+meeting+"/summary").session(owner).with(csrf()).contentType("application/json").content(json.writeValueAsString(body)))
+        .andExpect(status().isOk()).andExpect(jsonPath("snapshot").value(true)).andExpect(jsonPath("items[0].sources[0].id").value(source));
+    mvc.perform(get("/api/meetings/"+meeting+"/transcript").session(owner)).andExpect(status().isOk()).andExpect(jsonPath("version").value(0)).andExpect(jsonPath("segments.length()").value(0));
   }
 }

@@ -25,6 +25,10 @@ spring:
       enabled: false
 copilot:
   llm:
+    provider: ${LLM_PROVIDER:local}
+    deepseek:
+      model: ${DEEPSEEK_MODEL:deepseek-flash}
+      api-key: ${DEEPSEEK_API_KEY:}
     enabled: ${LLM_ENABLED:true}
     base-url: ${LLM_BASE_URL:http://127.0.0.1:11434/v1}
     model: ${LLM_MODEL:qwen3:8b}

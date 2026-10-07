@@ -1,5 +1,5 @@
 export type SpeechStatus='idle'|'starting'|'listening'|'reconnecting'|'stopping'|'error'|'unsupported'
-export interface SpeechState{status:SpeechStatus;interim:string;error:string;audio:boolean}
+export interface SpeechState{status:SpeechStatus;interim:string;error:string;audio:boolean;phase?:'capturing'|'processing'}
 export interface RecognitionEngine{
   lang:string;continuous:boolean;interimResults:boolean
   onstart:(()=>void)|null;onend:(()=>void)|null;onaudiostart:(()=>void)|null;onaudioend:(()=>void)|null

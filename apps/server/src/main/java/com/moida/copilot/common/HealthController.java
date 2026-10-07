@@ -3,5 +3,6 @@ import java.util.Map;
 import org.springframework.web.bind.annotation.*;
 @RestController
 public class HealthController {
-  @GetMapping("/api/health") public Map<String,Object> health() { return Map.of("status","UP","mode","service","transcription","browser","llmPolicy","local-first","llmAvailability","not-probed"); }
+  // Liveness is not a provider connectivity or model readiness test.
+  @GetMapping("/api/health") public Map<String,Object> health() { return Map.of("status","UP","mode","service","providerAvailability","not-probed"); }
 }

@@ -1,0 +1,47 @@
+package com.moida.copilot.speech;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.moida.copilot.team.application.TeamService;
+import java.io.*;
+import java.net.http.*;
+import java.nio.*;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.web.server.ResponseStatusException;
+import static org.junit.jupiter.api.Assertions.*;
+
+class GroqSpeechClientTest {
+  private final ObjectMapper json=new ObjectMapper();
+  private final UUID team=UUID.randomUUID(),user=UUID.randomUUID();
+  private final UsernamePasswordAuthenticationToken auth=new UsernamePasswordAuthenticationToken(user.toString(),"");
+  private static final String KEY="gsk_test_fake_key_1234567890";
+  private byte[] wav(){byte[] out=new byte[32044];var b=ByteBuffer.wrap(out).order(ByteOrder.LITTLE_ENDIAN);b.putInt(0,0x46464952);b.putInt(8,0x45564157);b.putInt(12,0x20746d66);b.putInt(16,16);b.putShort(20,(short)1);b.putShort(22,(short)1);b.putInt(24,16000);b.putShort(34,(short)16);b.putInt(36,0x61746164);b.putInt(40,32000);return out;}
+  private TeamService members(){return new TeamService(null){@Override public void requireMember(UUID t,UUID u,boolean owner){assertEquals(team,t);assertEquals(user,u);}};}
+  private SpeechController controller(TeamService teams,GroqSpeechClient client){return new SpeechController(teams,json,"http://127.0.0.1:8178","groq","","","",client);}
+  private MockHttpServletRequest audio(String provider,boolean consent){var r=new MockHttpServletRequest();r.setContent(wav());if(provider!=null)r.addHeader("X-Speech-Provider",provider);if(consent)r.addHeader("X-Speech-External-Approved","true");return r;}
+  @SuppressWarnings("unchecked") private HttpResponse<InputStream> response(int status,InputStream body){return (HttpResponse<InputStream>)java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),new Class<?>[]{HttpResponse.class},(proxy,method,args)->switch(method.getName()){case "statusCode"->status;case "body"->body;default->throw new UnsupportedOperationException(method.getName());});}
+  private GroqSpeechClient client(int status,String body,AtomicInteger sends){return new GroqSpeechClient(json,KEY,"whisper-large-v3-turbo",request->{sends.incrementAndGet();return response(status,new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8)));},Duration.ofSeconds(40));}
+  @Test void buildsFixedMultipartKoreanWhisperRequest()throws Exception{
+    var client=client(200,"{}",new AtomicInteger());var request=client.request(wav());
+    assertEquals("https://api.groq.com/openai/v1/audio/transcriptions",request.uri().toString());assertEquals("POST",request.method());assertEquals("Bearer "+KEY,request.headers().firstValue("Authorization").orElseThrow());assertEquals(Duration.ofSeconds(40),request.timeout().orElseThrow());
+    var bytes=new ByteArrayOutputStream();var completed=new CompletableFuture<Void>();request.bodyPublisher().orElseThrow().subscribe(new Flow.Subscriber<ByteBuffer>(){public void onSubscribe(Flow.Subscription subscription){subscription.request(Long.MAX_VALUE);}public void onNext(ByteBuffer item){byte[] b=new byte[item.remaining()];item.get(b);bytes.writeBytes(b);}public void onError(Throwable t){completed.completeExceptionally(t);}public void onComplete(){completed.complete(null);}});completed.get(1,TimeUnit.SECONDS);
+    String body=bytes.toString(StandardCharsets.UTF_8);assertTrue(body.contains("name=\"model\"\r\n\r\nwhisper-large-v3-turbo\r\n"));assertTrue(body.contains("name=\"language\"\r\n\r\nko\r\n"));assertTrue(body.contains("name=\"response_format\"\r\n\r\njson\r\n"));assertTrue(body.contains("filename=\"chunk.wav\"\r\nContent-Type: audio/wav\r\n\r\nRIFF"));assertFalse(body.contains(KEY));
+    String boundary=request.headers().firstValue("Content-Type").orElseThrow().split("boundary=")[1];assertTrue(body.endsWith("\r\n--"+boundary+"--\r\n"));
+  }
+  @Test void requiresProviderSpecificConsentAndMakesNoProbe(){var sends=new AtomicInteger();var c=controller(members(),client(200,"{\"text\":\"ok\"}",sends));var status=(Map<?,?>)c.status(auth,team);assertEquals(true,status.get("ready"));assertEquals("groq",status.get("provider"));assertEquals(true,status.get("external"));assertFalse(status.toString().contains(KEY));for(String provider:new String[]{null,"azure","local"})assertEquals(400,assertThrows(ResponseStatusException.class,()->c.transcribe(auth,team,UUID.randomUUID(),0,audio(provider,true))).getStatusCode().value());assertThrows(ResponseStatusException.class,()->c.transcribe(auth,team,UUID.randomUUID(),0,audio("groq",false)));assertEquals(0,sends.get());}
+  @Test void missingKeyAndUnsupportedModelFailClosed(){for(String[] settings:new String[][]{{"","whisper-large-v3-turbo"},{KEY,"distil-whisper-large-v3-en"},{"unsafe\r\nkey","whisper-large-v3"}}){var c=controller(members(),new GroqSpeechClient(json,settings[0],settings[1],request->{fail("must not send");return null;},Duration.ofSeconds(40)));assertEquals(false,((Map<?,?>)c.status(auth,team)).get("ready"));assertEquals(503,assertThrows(ResponseStatusException.class,()->c.transcribe(auth,team,UUID.randomUUID(),0,audio("groq",true))).getStatusCode().value());}assertTrue(new GroqSpeechClient(json,KEY,"whisper-large-v3").configured());}
+  @Test void returnsTrimmedTextAndSequence()throws Exception{var sends=new AtomicInteger();var c=controller(members(),client(200,"{\"text\":\" 안녕하세요 \"}",sends));var result=(Map<?,?>)c.transcribe(auth,team,UUID.randomUUID(),7,audio("groq",true));assertEquals("안녕하세요",result.get("text"));assertEquals(7,result.get("sequence"));assertEquals(1,sends.get());}
+  @Test void errorsStopWithoutRetryFallbackOrUpstreamDisclosure(){for(int code:new int[]{429,401,403,302,500}){var sends=new AtomicInteger();var c=controller(members(),client(code,"private upstream secret",sends));var failure=assertThrows(ResponseStatusException.class,()->c.transcribe(auth,team,UUID.randomUUID(),0,audio("groq",true)));assertEquals(code==429?429:502,failure.getStatusCode().value());assertFalse(failure.getReason().contains("private"));assertEquals(1,sends.get());}}
+  @Test void rejectsMalformedAndOversizeBodies(){for(String body:new String[]{"not json","null","{}","{\"text\":123}","{\"text\":\""+"a".repeat(65536)+"\"}"}){var c=controller(members(),client(200,body,new AtomicInteger()));assertEquals(502,assertThrows(ResponseStatusException.class,()->c.transcribe(auth,team,UUID.randomUUID(),0,audio("groq",true))).getStatusCode().value());}}
+  @Test void rechecksMembershipBeforeAndAfterSend(){for(int revokedAt:new int[]{1,2,3}){var checks=new AtomicInteger();var sends=new AtomicInteger();var denied=new TeamService(null){@Override public void requireMember(UUID t,UUID u,boolean owner){if(checks.incrementAndGet()==revokedAt)throw new ResponseStatusException(HttpStatus.FORBIDDEN);}};var c=controller(denied,client(200,"{\"text\":\"private\"}",sends));assertEquals(403,assertThrows(ResponseStatusException.class,()->c.transcribe(auth,team,UUID.randomUUID(),0,audio("groq",true))).getStatusCode().value());assertEquals(revokedAt==3?1:0,sends.get());}}
+  @Test void fullBodyTimeoutClosesStreamAndSanitizesFailure(){var closed=new CountDownLatch(1);var stalled=new InputStream(){@Override public int read()throws IOException{try{closed.await();return -1;}catch(InterruptedException e){Thread.currentThread().interrupt();throw new IOException("private");}}@Override public void close(){closed.countDown();}};var c=controller(members(),new GroqSpeechClient(json,KEY,"whisper-large-v3-turbo",request->response(200,stalled),Duration.ofMillis(30)));assertTimeoutPreemptively(Duration.ofSeconds(2),()->{var failure=assertThrows(ResponseStatusException.class,()->c.transcribe(auth,team,UUID.randomUUID(),0,audio("groq",true)));assertEquals(502,failure.getStatusCode().value());assertFalse(failure.getReason().contains("private"));});assertEquals(0,closed.getCount());}
+  @Test void wavValidationStillRunsBeforeGroq(){var sends=new AtomicInteger();var c=controller(members(),client(200,"{}",sends));var r=audio("groq",true);r.setContent(new byte[50]);assertThrows(ResponseStatusException.class,()->c.transcribe(auth,team,UUID.randomUUID(),0,r));assertEquals(0,sends.get());}
+  @Test void azureRejectsConsentForDifferentProvider(){var c=new SpeechController(members(),json,"http://127.0.0.1:8178","azure","testkey12345678901234567890","koreacentral","F0");assertEquals(400,assertThrows(ResponseStatusException.class,()->c.transcribe(auth,team,UUID.randomUUID(),0,audio("groq",true))).getStatusCode().value());}
+}

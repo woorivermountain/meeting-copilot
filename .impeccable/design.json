@@ -1,0 +1,327 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-07T02:24:17.373Z",
+  "title": "Design System: 모이다",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "displayName": "차콜",
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.015 270)",
+          "oklch(26% 0.015 270)",
+          "oklch(38% 0.015 270)",
+          "oklch(49% 0.015 270)",
+          "oklch(61% 0.015 270)",
+          "oklch(72% 0.015 270)",
+          "oklch(84% 0.015 270)",
+          "oklch(95% 0.015 270)"
+        ]
+      },
+      "primary-hover": {
+        "displayName": "짙은 차콜",
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.012 270)",
+          "oklch(26% 0.012 270)",
+          "oklch(38% 0.012 270)",
+          "oklch(49% 0.012 270)",
+          "oklch(61% 0.012 270)",
+          "oklch(72% 0.012 270)",
+          "oklch(84% 0.012 270)",
+          "oklch(95% 0.012 270)"
+        ]
+      },
+      "ink": {
+        "displayName": "본문 잉크",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.016 270)",
+          "oklch(26% 0.016 270)",
+          "oklch(38% 0.016 270)",
+          "oklch(49% 0.016 270)",
+          "oklch(61% 0.016 270)",
+          "oklch(72% 0.016 270)",
+          "oklch(84% 0.016 270)",
+          "oklch(95% 0.016 270)"
+        ]
+      },
+      "muted": {
+        "displayName": "설명 회색",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.02 265)",
+          "oklch(26% 0.02 265)",
+          "oklch(38% 0.02 265)",
+          "oklch(49% 0.02 265)",
+          "oklch(61% 0.02 265)",
+          "oklch(72% 0.02 265)",
+          "oklch(84% 0.02 265)",
+          "oklch(95% 0.02 265)"
+        ]
+      },
+      "workspace": {
+        "displayName": "작업 공간 회색",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.003 265)",
+          "oklch(26% 0.003 265)",
+          "oklch(38% 0.003 265)",
+          "oklch(49% 0.003 265)",
+          "oklch(61% 0.003 265)",
+          "oklch(72% 0.003 265)",
+          "oklch(84% 0.003 265)",
+          "oklch(95% 0.003 265)"
+        ]
+      },
+      "white": {
+        "displayName": "문서 흰색",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(26% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(49% 0 0)",
+          "oklch(61% 0 0)",
+          "oklch(72% 0 0)",
+          "oklch(84% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "line": {
+        "displayName": "구분선 회색",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.009 265)",
+          "oklch(26% 0.009 265)",
+          "oklch(38% 0.009 265)",
+          "oklch(49% 0.009 265)",
+          "oklch(61% 0.009 265)",
+          "oklch(72% 0.009 265)",
+          "oklch(84% 0.009 265)",
+          "oklch(95% 0.009 265)"
+        ]
+      },
+      "accent-soft": {
+        "displayName": "옅은 선택면",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.005 265)",
+          "oklch(26% 0.005 265)",
+          "oklch(38% 0.005 265)",
+          "oklch(49% 0.005 265)",
+          "oklch(61% 0.005 265)",
+          "oklch(72% 0.005 265)",
+          "oklch(84% 0.005 265)",
+          "oklch(95% 0.005 265)"
+        ]
+      },
+      "tab-selected": {
+        "displayName": "선택 문서면",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.003 265)",
+          "oklch(26% 0.003 265)",
+          "oklch(38% 0.003 265)",
+          "oklch(49% 0.003 265)",
+          "oklch(61% 0.003 265)",
+          "oklch(72% 0.003 265)",
+          "oklch(84% 0.003 265)",
+          "oklch(95% 0.003 265)"
+        ]
+      },
+      "link": {
+        "displayName": "조용한 파랑",
+        "role": "secondary",
+        "tonalRamp": [
+          "oklch(15% 0.15 265)",
+          "oklch(26% 0.15 265)",
+          "oklch(38% 0.15 265)",
+          "oklch(49% 0.15 265)",
+          "oklch(61% 0.15 265)",
+          "oklch(72% 0.15 265)",
+          "oklch(84% 0.15 265)",
+          "oklch(95% 0.15 265)"
+        ]
+      },
+      "danger": {
+        "displayName": "경고 빨강",
+        "role": "secondary",
+        "tonalRamp": [
+          "oklch(15% 0.15 20)",
+          "oklch(26% 0.15 20)",
+          "oklch(38% 0.15 20)",
+          "oklch(49% 0.15 20)",
+          "oklch(61% 0.15 20)",
+          "oklch(72% 0.15 20)",
+          "oklch(84% 0.15 20)",
+          "oklch(95% 0.15 20)"
+        ]
+      },
+      "focus": {
+        "displayName": "포커스 파랑",
+        "role": "secondary",
+        "tonalRamp": [
+          "oklch(15% 0.16 268)",
+          "oklch(26% 0.16 268)",
+          "oklch(38% 0.16 268)",
+          "oklch(49% 0.16 268)",
+          "oklch(61% 0.16 268)",
+          "oklch(72% 0.16 268)",
+          "oklch(84% 0.16 268)",
+          "oklch(95% 0.16 268)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "회의 제목",
+        "purpose": "문서의 최상위 제목."
+      },
+      "title": {
+        "displayName": "섹션 제목",
+        "purpose": "문서 구획의 제목."
+      },
+      "body": {
+        "displayName": "본문",
+        "purpose": "일반 설명과 문단."
+      },
+      "transcript": {
+        "displayName": "대화 기록",
+        "purpose": "줄 간격이 넉넉한 인식 문장."
+      },
+      "label": {
+        "displayName": "입력 라벨",
+        "purpose": "영구 표시되는 필드 이름."
+      }
+    },
+    "shadows": [
+      {
+        "name": "dialog",
+        "value": "0 24px 80px #18243c33",
+        "purpose": "모달에만 사용되는 구조적 깊이."
+      }
+    ],
+    "motion": [
+      {
+        "name": "reduced-motion",
+        "value": "animation:none!important;scroll-behavior:auto!important;transition:none!important",
+        "purpose": "prefers-reduced-motion: reduce에서 모든 움직임 제거. 현재 회의 섹션은 기본 상태에도 패널 진입 애니메이션이 없음."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-desktop",
+        "value": "1100px"
+      },
+      {
+        "name": "mobile",
+        "value": "760px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "기본 행동을 표시합니다.",
+      "html": "<button class=\"ds-primary\">전사 시작</button>",
+      "css": ".ds-primary{font-family:Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:10px 16px;border:1px solid transparent;border-radius:8px;font-size:15px;font-weight:600;line-height:1.35;white-space:nowrap;cursor:pointer;background:var(--accent,#292c33);color:#fff}.ds-primary:hover:not(:disabled){background:#14161b}.ds-primary:focus-visible{outline:3px solid #6485ee;outline-offset:3px}.ds-primary:disabled{opacity:.48;cursor:not-allowed}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "주요 액션과 함께 쓰는 보조 행동입니다.",
+      "html": "<button class=\"ds-secondary\">기록 저장</button>",
+      "css": ".ds-secondary{font-family:Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:10px 16px;border:1px solid transparent;border-radius:8px;font-size:15px;font-weight:600;line-height:1.35;white-space:nowrap;cursor:pointer;background:var(--white,#fff);border-color:#d5dae3;color:var(--ink,#20242c)}.ds-secondary:hover:not(:disabled){background:#f0f3f8;border-color:#b8c1d1}.ds-secondary:focus-visible{outline:3px solid #6485ee;outline-offset:3px}.ds-secondary:disabled{opacity:.48;cursor:not-allowed}"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "접기·취소 등 낮은 강조의 행동입니다.",
+      "html": "<button class=\"ds-quiet\">취소</button>",
+      "css": ".ds-quiet{font-family:Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:10px 16px;border:1px solid transparent;border-radius:8px;font-size:15px;font-weight:600;line-height:1.35;white-space:nowrap;cursor:pointer;min-height:36px;padding:7px 9px;font-size:14px;background:transparent;color:var(--muted,#606875)}.ds-quiet:hover:not(:disabled){background:#edf0f5;color:var(--ink,#20242c)}.ds-quiet:focus-visible{outline:3px solid #6485ee;outline-offset:3px}.ds-quiet:disabled{opacity:.48;cursor:not-allowed}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "주의가 필요한 확인 행동입니다.",
+      "html": "<button class=\"ds-danger\">저장하지 않고 나가기</button>",
+      "css": ".ds-danger{font-family:Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:10px 16px;border:1px solid transparent;border-radius:8px;font-size:15px;font-weight:600;line-height:1.35;white-space:nowrap;cursor:pointer;background:var(--danger,#b9353d);color:#fff}.ds-danger:hover:not(:disabled){background:#982b32}.ds-danger:focus-visible{outline:3px solid #6485ee;outline-offset:3px}.ds-danger:disabled{opacity:.48;cursor:not-allowed}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "영구 라벨을 갖는 회의 제목 입력입니다.",
+      "html": "<label class=\"ds-field\">회의 제목<input placeholder=\"예: 주간 제품 회의\"></label>",
+      "css": ".ds-field{font-family:Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;display:grid;gap:8px;max-width:360px;font-size:14px;font-weight:550;line-height:1.6;color:var(--ink,#20242c)}.ds-field input{font-family:Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;min-width:0;border:1px solid #cfd4dd;border-radius:7px;background:#fff;padding:11px 12px;color:var(--ink,#20242c);font-size:15px;line-height:1.55;caret-color:var(--accent,#292c33)}.ds-field input::placeholder{color:#727b89;font-weight:400}.ds-field input:focus-visible{outline:3px solid #6485ee;outline-offset:3px}"
+    },
+    {
+      "name": "Document Navigation",
+      "kind": "nav",
+      "refersTo": "document-tab",
+      "description": "한 문서 안에서 보이는 섹션을 선택하는 버튼입니다. 이 미리보기는 정적인 상태 예시입니다.",
+      "html": "<nav class=\"ds-tabs\" aria-label=\"회의 문서\"><button aria-pressed=\"true\">대화 기록</button><button aria-pressed=\"false\">요약</button><button aria-pressed=\"false\">결정·할 일</button></nav>",
+      "css": ".ds-tabs{display:flex;gap:4px;align-items:center}.ds-tabs button{font-family:Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:10px 16px;border:1px solid transparent;border-radius:8px;font-size:15px;font-weight:600;line-height:1.35;white-space:nowrap;cursor:pointer;min-height:36px;padding:9px 12px;border:0;border-radius:6px;font-size:14px;background:transparent;color:var(--muted,#606875)}.ds-tabs button:hover{background:#f4f5f7;color:var(--ink,#20242c)}.ds-tabs button[aria-pressed=true]{background:#f0f1f3;color:#20242c;font-weight:650}.ds-tabs button:focus-visible{outline:3px solid #6485ee;outline-offset:3px}"
+    },
+    {
+      "name": "Meeting Status",
+      "kind": "chip",
+      "refersTo": "status-badge",
+      "description": "회의 목록의 상태를 글자와 색으로 표시합니다.",
+      "html": "<div class=\"ds-statuses\"><span class=\"ds-badge ds-open\">진행 가능</span><span class=\"ds-badge\">종료</span></div>",
+      "css": ".ds-statuses{display:flex;gap:8px}.ds-badge{font-family:Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;background:#f0f2f5;color:var(--muted,#606875);border-radius:5px;padding:4px 8px;white-space:nowrap}.ds-open{background:#eef4ff;color:#3359a9}"
+    },
+    {
+      "name": "Plain Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "회의 문서가 아닌 일반 자료 화면의 경계 있는 컨테이너입니다.",
+      "html": "<section class=\"ds-panel\"><h2>자료</h2><p>추가한 자료를 확인하세요.</p></section>",
+      "css": ".ds-panel{font-family:Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--white,#fff);color:var(--ink,#20242c);padding:24px;border:1px solid var(--line,#e3e6ec);border-radius:12px;max-width:420px}.ds-panel h2{font-size:18px;font-weight:650;line-height:1.5;letter-spacing:-.015em;margin:0 0 14px}.ds-panel p{font-size:15px;line-height:1.7;max-width:75ch;margin:0 0 16px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "정돈된 회의 문서",
+    "overview": "모이다는 정돈된 문서 작업 공간입니다. 사용자가 선택한 Notion식 문서 중심 방향을 따라 흰 바탕, 차콜 액션, 짧은 한국어와 명확한 구획으로 기록을 읽고 정리하는 데 집중합니다.\n\n표면은 평평하고 조용합니다. 제목과 본문이 위계를 만들고, 경계선과 간격이 영역을 구분합니다. 회의의 상태와 사용자 행동에 필요한 정보만 강조하며 장식적인 대시보드나 통화 무대처럼 보이지 않습니다.",
+    "keyCharacteristics": [
+      "흰 문서와 차콜 중심의 조용한 위계",
+      "자체 제공 Pretendard와 짧은 한국어",
+      "간격과 가는 구분선 중심의 평평한 표면",
+      "상태를 드러내되 실제 데이터 이상을 주장하지 않는 UI"
+    ],
+    "rules": [
+      {
+        "name": "The Charcoal Action Rule",
+        "body": "기본 행동은 차콜로 표시하고, 파랑을 기본 버튼색으로 되돌리지 않습니다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Action Copy Rule",
+        "body": "사용자에게 필요한 행동과 상태를 짧은 한국어로 씁니다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Document Rule",
+        "body": "문서의 위계는 카드 그림자가 아니라 제목, 간격, 구분선으로 만듭니다.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use 차콜 기본 액션과 흰 문서면을 유지합니다.",
+      "Do use 짧고 행동 중심적인 한국어를 사용합니다.",
+      "Do keep 키보드 포커스와 텍스트 상태 설명을 유지합니다.",
+      "Do keep 저장 전·저장됨·오류 상태를 실제 데이터에 맞게 표현합니다."
+    ],
+    "donts": [
+      "Don't restore 따뜻한 베이지 테마나 장식적인 AI 설명을 되돌리지 않습니다.",
+      "Don't turn 현재 회의 문서를 하단 통화 도크나 좌우 동시 패널로 바꾸지 않습니다.",
+      "Don't imply 자동 저장, 자동 화자 구분, 화상 회의 또는 실시간 공동 편집을 암시하지 않습니다."
+    ]
+  }
+}

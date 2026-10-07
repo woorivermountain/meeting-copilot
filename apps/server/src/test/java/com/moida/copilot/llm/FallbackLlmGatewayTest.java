@@ -9,6 +9,9 @@ import static org.mockito.Mockito.*;
 import java.util.List;
 class FallbackLlmGatewayTest {
   final LlmGateway local=mock(LlmGateway.class),external=mock(LlmGateway.class);
+  @Test void approvedRequestStillUsesSelectedLocalWithoutFallback(){when(local.completeLocal(anyList(),anyList())).thenThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY));for(boolean approved:List.of(false,true))assertThrows(ResponseStatusException.class,()->new FallbackLlmGateway(local,external,true).completeApproved(List.of(),List.of(),approved));verifyNoInteractions(external);}
+  @Test void localOnlyNeverFallsBackEvenWhenGloballyAllowed(){when(local.completeLocal(anyList(),anyList())).thenThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY));assertThrows(ResponseStatusException.class,()->new FallbackLlmGateway(local,external,true).completeLocal(List.of(),List.of()));verifyNoInteractions(external);}
+  @Test void nonLoopbackLocalEndpointIsRejectedBeforeNetwork(){var gateway=new com.moida.copilot.llm.infrastructure.CompatibleLlmGateway(new ObjectMapper(),"https://example.invalid/v1","test","",true);assertThrows(ResponseStatusException.class,()->gateway.completeLocal(List.of(),List.of()));}
   @Test void healthyLocalNeverCallsExternal() throws Exception {
     when(local.complete(anyList(),anyList())).thenReturn(new ObjectMapper().readTree("{\"content\":\"local\"}"));
     assertEquals("local",new FallbackLlmGateway(local,external,true).complete(List.of(),List.of()).path("content").asText());verifyNoInteractions(external);

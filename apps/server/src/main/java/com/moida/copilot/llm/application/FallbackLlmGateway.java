@@ -14,6 +14,7 @@ public final class FallbackLlmGateway implements LlmGateway {
   }
   public boolean enabled(){return local.enabled();}
   public String model(){return local.model();}
+  @Override public JsonNode completeLocal(List<Map<String,Object>> messages,List<Map<String,Object>> tools){return local.completeLocal(messages,tools);}
   public JsonNode complete(List<Map<String,Object>> messages,List<Map<String,Object>> tools) {
     try { return local.complete(messages,tools); }
     catch (ResponseStatusException failure) {

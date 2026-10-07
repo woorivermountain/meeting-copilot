@@ -2,13 +2,18 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { H3Event } from 'h3'
 
 interface SessionPayload { sub: string; email: string; exp: number }
+const EXAMPLE_SECRET = 'replace-with-at-least-32-random-characters'
+
+export function isValidSessionSecret(secret: string) {
+  return secret.length >= 32 && secret !== EXAMPLE_SECRET
+}
 
 function signature(value: string, secret: string) {
   return createHmac('sha256', secret).update(value).digest('base64url')
 }
 
 export function issueSession(event: H3Event, payload: Omit<SessionPayload, 'exp'>, secret: string) {
-  if (secret.length < 32) throw new Error('SESSION_SECRET_TOO_SHORT')
+  if (!isValidSessionSecret(secret)) throw new Error('SESSION_SECRET_INVALID')
   const value = Buffer.from(JSON.stringify({ ...payload, exp: Date.now() + 7 * 86_400_000 })).toString('base64url')
   const token = `${value}.${signature(value, secret)}`
   setCookie(event, 'moida_session', token, {
@@ -18,7 +23,7 @@ export function issueSession(event: H3Event, payload: Omit<SessionPayload, 'exp'
 
 export function readSession(event: H3Event, secret: string): SessionPayload | null {
   const token = getCookie(event, 'moida_session')
-  if (!token || secret.length < 32) return null
+  if (!token || !isValidSessionSecret(secret)) return null
   const [value, provided] = token.split('.')
   if (!value || !provided) return null
   const expected = signature(value, secret)
@@ -33,7 +38,7 @@ export function readSession(event: H3Event, secret: string): SessionPayload | nu
 
 export function requireSession(event: H3Event): SessionPayload {
   const config = useRuntimeConfig(event)
-  if (!config.databaseUrl && config.llmMode === 'mock') {
+  if (import.meta.dev && !config.databaseUrl && config.llmMode === 'mock') {
     return { sub: 'demo-reviewer', email: 'demo@moida.local', exp: Date.now() + 60_000 }
   }
   const session = readSession(event, config.sessionSecret)
