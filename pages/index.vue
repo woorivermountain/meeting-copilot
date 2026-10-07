@@ -8,6 +8,7 @@ const meetingStartedAt = ref(Date.now())
 const elapsed = ref(0)
 const activeAgenda = ref(0)
 const query = ref('')
+const manualTranscript = ref('')
 const transcript = ref<string[]>([
   '이번 파일럿은 9월 둘째 주까지 진행하고 실제 팀의 후속 실행률을 확인하기로 했습니다.',
   '지표 수집 담당자는 아직 정하지 않았고 참가팀 일정도 확인이 필요합니다.'
@@ -63,6 +64,7 @@ async function ask(request = query.value) {
     })
     insights.value.unshift(...response.insights)
     if (response.retryable) errorMessage.value = '응답 생성이 지연되고 있어요. 회의는 그대로 계속할 수 있습니다.'
+    else if (!response.insights.length) errorMessage.value = '현재 회의 기록에서 답변 근거를 확인하지 못했습니다. 맥락을 추가하거나 질문을 구체화해 주세요.'
   } catch {
     errorMessage.value = '회의는 계속 진행할 수 있습니다. 잠시 후 다시 요청해 주세요.'
   } finally { loading.value = false }
@@ -70,11 +72,13 @@ async function ask(request = query.value) {
 
 async function summarize() {
   loading.value = true
+  errorMessage.value = ''
   try {
     snapshot.value = await $fetch<ContextSnapshot>('/api/context-snapshot', {
       method: 'POST', body: { previousSnapshot: snapshot.value, recentTranscript: recentTranscript.value }
     })
-  } finally { loading.value = false }
+  } catch { errorMessage.value = '맥락을 정리하지 못했습니다. 회의 기록은 그대로 유지됩니다.' }
+  finally { loading.value = false }
 }
 
 function nextAgenda() {
@@ -103,9 +107,12 @@ async function endMeeting() {
 async function confirmWrapup() {
   if (!candidates.value) return
   loading.value = true
-  await $fetch('/api/meetings/demo-001/wrapup-confirm', { method: 'POST', body: { ...candidates.value, reviewedBy: 'demo-reviewer' } })
-  loading.value = false
-  view.value = 'board'
+  errorMessage.value = ''
+  try {
+    await $fetch('/api/meetings/demo-001/wrapup-confirm', { method: 'POST', body: { ...candidates.value, reviewedBy: 'demo-reviewer' } })
+    view.value = 'board'
+  } catch { errorMessage.value = '저장하지 못했습니다. 검토한 내용은 유지되며 다시 시도할 수 있습니다.' }
+  finally { loading.value = false }
 }
 </script>
 
@@ -117,6 +124,7 @@ async function confirmWrapup() {
         <a href="#product">제품</a><a href="#pricing">가격</a><a href="#trust">데이터 원칙</a>
       </nav>
       <div class="header-actions">
+        <NuxtLink class="button outline" to="/knowledge" :target="view === 'home' ? undefined : '_blank'" rel="noopener">{{ view === 'home' ? '부서 자료함' : '자료함 · 새 탭' }}</NuxtLink>
         <span v-if="view !== 'home'" class="workspace-name">스칼라 제품팀</span>
         <button v-if="view === 'home'" class="button ghost" @click="startMeeting">데모 열기</button>
         <button v-if="view === 'home'" class="button dark" @click="startMeeting">무료로 시작</button>
@@ -168,9 +176,10 @@ async function confirmWrapup() {
         <section class="transcript-panel panel">
           <div class="panel-title"><div><span class="panel-label">회의 맥락</span><h2>{{ currentAgendaTitle }}</h2></div><span class="timer-pill">{{ elapsedLabel }}</span></div>
           <div class="transcript-list">
-            <div v-for="(line, index) in transcript" :key="index" class="speech-line"><span>{{ String(index + 1).padStart(2, '0') }}</span><p contenteditable="true">{{ line }}</p></div>
+            <div v-for="(line, index) in transcript" :key="index" class="speech-line"><span>{{ String(index + 1).padStart(2, '0') }}</span><p contenteditable="true" role="textbox" :aria-label="`발화 ${index + 1} 수정`" @blur="transcript[index] = ($event.target as HTMLElement).innerText">{{ line }}</p></div>
             <div v-if="speech.interim.value" class="speech-line interim"><span>··</span><p>{{ speech.interim.value }}</p></div>
           </div>
+          <form class="ask-box" @submit.prevent="onFinalSpeech(manualTranscript.trim()); manualTranscript = ''"><input v-model="manualTranscript" required maxlength="4000" aria-label="수동 회의 기록" placeholder="회의 내용을 입력하고 추가하세요"><button :disabled="!manualTranscript.trim()" aria-label="회의 기록 추가">+</button></form>
           <div class="privacy-note"><span>◉</span><p><b>전사 원문은 이 브라우저 세션에만 유지됩니다.</b><small>우리 서버·DB에는 저장하지 않습니다. 브라우저 음성 인식과 AI 공급자의 일시 처리는 각 정책이 적용됩니다.</small></p></div>
         </section>
 
@@ -179,7 +188,7 @@ async function confirmWrapup() {
           <div v-if="snapshot" class="snapshot-card"><span>맥락 스냅샷 후보</span><b>합의</b><p v-for="item in snapshot.agreed" :key="item">{{ item }}</p><b>확인 필요</b><p v-for="item in snapshot.openQuestions" :key="item">{{ item }}</p></div>
           <div v-if="loading" class="thinking"><i /><span>회의 맥락을 확인하고 있어요</span></div>
           <div v-if="lastRequest" class="recognized"><small>인식된 요청</small><p>“{{ lastRequest }}”</p></div>
-          <article v-for="(insight, index) in insights" :key="index" class="insight-card"><button class="close" @click="insights.splice(index, 1)">×</button><span>{{ insight.kind === 'action' ? '다음 실행 후보' : '회의 맥락 기준' }}</span><h3>{{ insight.title }}</h3><p>{{ insight.body }}</p><footer>근거 {{ insight.evidence.length }}개 <b>{{ insight.confidence }}%</b></footer></article>
+          <article v-for="(insight, index) in insights" :key="index" class="insight-card"><button class="close" @click="insights.splice(index, 1)">×</button><span>{{ insight.kind === 'action' ? '다음 실행 후보' : '회의 맥락 기준' }}</span><h3>{{ insight.title }}</h3><p>{{ insight.body }}</p><details><summary>원문 근거 {{ insight.evidence.length }}개 확인</summary><blockquote v-for="(evidence, number) in insight.evidence" :key="number">{{ evidence.quote }}</blockquote></details><footer>사용자 검토 필요 <b>{{ insight.confidence }}%</b></footer></article>
           <div v-if="!insights.length && !loading" class="quiet-state"><span>⌁</span><h3>필요할 때 불러주세요.</h3><p>“모이다, 지금까지 결정된 것 보여줘”처럼 말하거나 직접 입력할 수 있어요.</p></div>
           <div v-if="errorMessage" class="error-state">{{ errorMessage }}</div>
           <form class="ask-box" @submit.prevent="ask()"><input v-model="query" placeholder="최근 맥락을 기준으로 물어보기" aria-label="회의 맥락 질문"><button :disabled="loading || !query.trim()">↑</button></form>
@@ -194,12 +203,13 @@ async function confirmWrapup() {
         <div class="review-column"><div class="column-head"><span>할 일</span><b>{{ candidates.actions.filter(x => x.included).length }}</b></div><article v-for="item in candidates.actions" :key="item.clientId" :class="{ excluded: !item.included }"><label><input v-model="item.included" type="checkbox"> 포함 예정</label><textarea v-model="item.what" /><input v-model="item.who" class="assignee" placeholder="담당자 미정"><small>{{ item.who || '담당자 지정이 필요합니다' }}</small></article></div>
         <div class="review-column"><div class="column-head"><span>미결 쟁점</span><b>{{ candidates.issues.filter(x => x.included).length }}</b></div><article v-for="item in candidates.issues" :key="item.clientId" :class="{ excluded: !item.included }"><label><input v-model="item.included" type="checkbox"> 포함 예정</label><textarea v-model="item.question" /><small>다음 회의 안건 추가는 저장 후 선택</small></article></div>
       </div>
-      <div class="review-bar"><p>승인한 구조화 항목만 저장됩니다. 전사 원문과 제외한 후보는 폐기됩니다.</p><button class="button coral" :disabled="loading" @click="confirmWrapup">{{ loading ? '저장 중…' : '검토 완료 · 팀 보드로' }} →</button></div>
+      <p v-if="errorMessage" role="alert" class="error-state">{{ errorMessage }}</p>
+      <div class="review-bar"><p>승인한 구조화 항목만 저장됩니다. 전사 원문과 제외한 후보는 DB에 저장하지 않습니다.</p><button class="button coral" :disabled="loading" @click="confirmWrapup">{{ loading ? '저장 중…' : '검토 완료 · 팀 보드로' }} →</button></div>
     </section>
 
     <section v-else class="board-page">
       <div class="board-title"><div><span class="eyebrow">TEAM EXECUTION BOARD</span><h1>결정에서 실행까지,<br>한눈에 이어집니다.</h1></div><button class="button dark" @click="startMeeting">새 회의 시작</button></div>
-      <div class="value-receipt"><span>이번 회의의 가치</span><b>{{ (candidates?.actions.filter(x => x.included).length || 0) + (candidates?.decisions.filter(x => x.included).length || 0) }}개 실행 누락을 막았습니다.</b><p>미배정 업무는 담당자를 지정할 때까지 계속 표시됩니다.</p></div>
+      <div class="value-receipt"><span>이번 회의의 승인 결과</span><b>결정·할 일 {{ (candidates?.actions.filter(x => x.included).length || 0) + (candidates?.decisions.filter(x => x.included).length || 0) }}개를 승인했습니다.</b><p>담당자가 없는 업무는 미배정으로 표시합니다.</p></div>
       <div class="kanban">
         <div><h2>할 일 <span>{{ candidates?.actions.filter(x => x.included).length || 0 }}</span></h2><article v-for="item in candidates?.actions.filter(x => x.included)" :key="item.clientId"><small>신규 파일럿 킥오프</small><h3>{{ item.what }}</h3><footer><i class="avatar mint">{{ item.who?.[0] || '?' }}</i><span :class="{ warning: !item.who }">{{ item.who || '미배정' }}</span></footer></article></div>
         <div><h2>진행 중 <span>0</span></h2><div class="empty-column">상태를 바꾼 업무가 여기에 표시됩니다.</div></div>
