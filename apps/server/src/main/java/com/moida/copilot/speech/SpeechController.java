@@ -61,7 +61,7 @@ public class SpeechController {
     try{
       if(provider.equals("groq")){
         teams.requireMember(team,UUID.fromString(auth.getName()),false);
-        String text=groq.transcribe(audio);teams.requireMember(team,UUID.fromString(auth.getName()),false);
+        String text=groq.transcribe(audio,speechContext(request));teams.requireMember(team,UUID.fromString(auth.getName()),false);
         return Map.of("text",text.substring(0,Math.min(4000,text.length())),"sequence",sequence);
       }
       if(provider.equals("azure")){
@@ -82,6 +82,15 @@ public class SpeechController {
     }catch(InterruptedException e){Thread.currentThread().interrupt();throw error(HttpStatus.SERVICE_UNAVAILABLE,"전사 요청이 중단됐어요.");}catch(IOException e){throw error(HttpStatus.BAD_GATEWAY,"전사 서버 연결이 끊겼거나 응답이 늦어요. 설정을 확인해 주세요.");}finally{capacity.release();}
   }
   private boolean azureConfigured(){return "F0".equals(tier)&&key.matches("[A-Za-z0-9]{16,256}")&&region.matches("[a-z][a-z0-9]{1,39}");}
+  private static String speechContext(HttpServletRequest request){
+    String encoded=request.getHeader("X-Speech-Context-B64");if(encoded==null||encoded.isBlank())return "";
+    if(encoded.length()>4096)throw error(HttpStatus.BAD_REQUEST,"인식 보조 맥락이 너무 길어요. 용어 수를 줄여 주세요.");
+    try{
+      String value=new String(Base64.getDecoder().decode(encoded),StandardCharsets.UTF_8).trim();
+      if(value.length()>360||value.indexOf('\uFFFD')>=0||value.chars().anyMatch(c->Character.isISOControl(c)&&c!='\n'&&c!='\r'&&c!='\t'))throw new IllegalArgumentException();
+      return value;
+    }catch(IllegalArgumentException e){throw error(HttpStatus.BAD_REQUEST,"인식 보조 맥락의 형식을 확인해 주세요.");}
+  }
   // HttpRequest timeout alone does not bound InputStream body reads after headers arrive.
   static byte[] readResponse(InputStream input,long deadline)throws IOException,InterruptedException{
     var reading=CompletableFuture.supplyAsync(()->{try{return input.readNBytes(65537);}catch(IOException e){throw new CompletionException(e);}});

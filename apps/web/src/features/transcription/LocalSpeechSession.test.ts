@@ -2,7 +2,7 @@ import {afterEach,describe,expect,it,vi} from 'vitest'
 import {LocalSpeechSession} from './LocalSpeechSession'
 
 afterEach(()=>{vi.useRealTimers();vi.unstubAllGlobals()})
-async function setup(pending=false,maxSeconds:4|8=4){
+async function setup(pending=false,maxSeconds:4|8=4,context?:()=>string){
   vi.useFakeTimers()
   const processor={onaudioprocess:null as null|((event:any)=>void),connect:vi.fn(),disconnect:vi.fn()}
   vi.stubGlobal('AudioContext',class {sampleRate=16000;destination={};resume=async()=>{};close=async()=>{};createMediaStreamSource=()=>({connect:vi.fn(),disconnect:vi.fn()});createScriptProcessor=()=>processor})
@@ -11,12 +11,17 @@ async function setup(pending=false,maxSeconds:4|8=4){
     const response={ok:true,json:async()=>({text:'문장',sequence:sequence++})}
     return pending?new Promise(resolve=>{finish=()=>resolve(response)}):Promise.resolve(response)
   });vi.stubGlobal('fetch',fetchMock)
-  const change=vi.fn(),final=vi.fn(),diagnostic=vi.fn(),session=new LocalSpeechSession('team',change,final,true,'groq',diagnostic,maxSeconds)
+  const change=vi.fn(),final=vi.fn(),diagnostic=vi.fn(),session=new LocalSpeechSession('team',change,final,true,'groq',diagnostic,maxSeconds,context)
   await session.start({} as MediaStream)
   const feed=(seconds:number,value=.1)=>processor.onaudioprocess?.({inputBuffer:{getChannelData:()=>new Float32Array(Math.round(16000*seconds)).fill(value)}})
   return {session,change,final,diagnostic,fetchMock,processor,feed,finish:()=>finish()}
 }
 describe('pause-aware serial transcription',()=>{
+  it('sends a bounded Korean context hint only as an explicit Groq header',async()=>{
+    const prompt='회의 제목: 맥락 개선\n정확한 표기 후보: 프롬프트, Whisper';const t=await setup(false,4,()=>prompt);t.feed(4);await vi.advanceTimersByTimeAsync(0)
+    const headers=t.fetchMock.mock.calls[1]![1].headers as Record<string,string>;const decoded=new TextDecoder().decode(Uint8Array.from(atob(headers['X-Speech-Context-B64']!),value=>value.charCodeAt(0)))
+    expect(decoded).toBe(prompt);expect(headers['X-Speech-Provider']).toBe('groq');t.session.dispose()
+  })
   it('allows longer continuous context without exceeding eight seconds and reports text-free diagnostics',async()=>{
     const t=await setup(false,8);t.feed(4);await vi.advanceTimersByTimeAsync(0);expect(t.fetchMock).toHaveBeenCalledTimes(1)
     t.feed(4);await vi.advanceTimersByTimeAsync(0);expect(t.fetchMock.mock.calls[1]![1].body.byteLength).toBe(256044)

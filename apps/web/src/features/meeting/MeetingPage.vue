@@ -7,7 +7,7 @@ import TranscriptionPanel from '../transcription/TranscriptionPanel.vue'
 import OutcomePanel from '../outcome/OutcomePanel.vue'
 import SummaryPanel from './SummaryPanel.vue'
 import MeetingAssistant from './MeetingAssistant.vue'
-import HelpTip from '../../shared/ui/HelpTip.vue'
+import type {RetentionSuggestion} from './MeetingAssistantService'
 import AppIcon from '../../shared/ui/AppIcon.vue'
 import AppDialog from '../../shared/ui/AppDialog.vue'
 import {needsLeaveConfirmation,leaveDescription} from './leavePolicy'
@@ -25,8 +25,9 @@ const panelNames:Record<string,string>={assistant:'AI 도우미',summary:'AI 요
 let resolveLeave:((leave:boolean)=>void)|undefined
 onMounted(async()=>{try{meeting.value=await meetingService.get(id);const [transcript,people,versions]=await Promise.all([meetingService.transcript(id),teamService.members(meeting.value.teamId),meetingService.history(id)]);segments.value=transcript.segments;version.value=transcript.version;saved.value=JSON.stringify(segments.value);members.value=people;history.value=versions}catch(e){error.value=(e as Error).message}})
 async function focusAssistant(){panel.value='assistant';await nextTick();assistant.value?.open()}
+function toggleAssistant(){if(panel.value==='assistant')panel.value='';else void focusAssistant()}
 async function showSource(sourceId:string){panel.value='';await nextTick();document.getElementById('segment-'+sourceId)?.scrollIntoView({block:'center'})}
-function retainAnswer(value:string){if(value.length>2000){error.value='답변이 길어요. 필요한 부분을 복사해 2,000자 이내로 남겨 주세요.';return}if(!outcomes.value?.prepareDraft(value)){error.value='작성 중인 내용이 있어요. 먼저 저장하거나 지운 뒤 옮겨 주세요.';panel.value='outcomes';return}panel.value='outcomes'}
+function retainAnswer(value:RetentionSuggestion){if(value.text.length>2000){error.value='추천 내용이 길어요. 필요한 부분을 2,000자 이내로 다듬어 주세요.';return}if(!outcomes.value?.prepareDraft(value.text,value.kind)){error.value='작성 중인 내용이 있어요. 먼저 저장하거나 지운 뒤 옮겨 주세요.';panel.value='outcomes';return}panel.value='outcomes'}
 function toggle(value:string){panel.value=panel.value===value?'':value}
 async function save(){if(!approved.value||active.value)return false;busy.value=true;error.value='';notice.value='';try{const result=await meetingService.save(id,version.value,segments.value);version.value=result.version;saved.value=JSON.stringify(segments.value);approved.value=false;history.value=await meetingService.history(id);notice.value='기록을 저장했어요.';return true}catch(e){error.value=(e as Error).message;return false}finally{busy.value=false}}
 async function end(){if(active.value||dirty.value||outcomeDraft.value||manualDraft.value)return;busy.value=true;try{meeting.value=await meetingService.end(id);ending.value=false;panel.value='summary';notice.value='회의를 종료했어요.'}catch(e){error.value=(e as Error).message}finally{busy.value=false}}
@@ -65,10 +66,9 @@ onBeforeRouteUpdate(guard)
           <button class="secondary" :aria-pressed="panel==='review'" @click="panel='review'"><AppIcon name="check" :size="17"/>기록 저장<i v-if="dirty" class="unsaved-dot"/></button>
         </div>
       </nav>
-      <div class="meeting-context-strip"><span>대화는 이어가세요. 필요한 확인은 AI에게 맡기세요.</span><button class="quiet-button" :aria-pressed="panel==='assistant'" @click="focusAssistant"><AppIcon name="sparkle" :size="16"/>AI에게 확인<span v-if="assistantPending" class="pending-count">{{assistantPending}}</span></button><HelpTip label="AI와 함께 회의하기">AI는 질문할 때만 작동하고, 답변을 기다리는 동안 전사는 계속돼요. 회의 사실과 일반적인 제안을 나눠 보여줍니다.</HelpTip></div>
       <div :class="['room-content',{'has-panel':!!panel&&panel!=='assistant','has-assistant':panel==='assistant'}]">
-        <div class="room-main"><TranscriptionPanel ref="speech" v-model="segments" :team-id="meeting.teamId" :disabled="busy||meeting.status==='ENDED'" @active="active=$event" @status="speechStatus=$event" @draft="manualDraft=$event"/></div>
-        <aside v-show="panel" :class="['room-side',{'assistant-side':panel==='assistant'}]" aria-label="회의 도구">
+        <div class="room-main"><TranscriptionPanel ref="speech" v-model="segments" :team-id="meeting.teamId" :meeting-title="meeting.title" :disabled="busy||meeting.status==='ENDED'" @active="active=$event" @status="speechStatus=$event" @draft="manualDraft=$event"/></div>
+        <aside id="meeting-ai-panel" v-show="panel" :class="['room-side',{'assistant-side':panel==='assistant'}]" aria-label="회의 도구">
           <div class="side-heading"><h2>{{panelNames[panel]}}</h2><button class="icon-button" aria-label="패널 닫기" @click="panel=''"><AppIcon name="close"/></button></div>
           <div :class="['side-body',{'assistant-body':panel==='assistant'}]">
             <MeetingAssistant ref="assistant" v-show="panel==='assistant'" :meeting="id" :team="meeting.teamId" :segments="segments" :version="version" @draft="assistantDraft=$event" @pending="assistantPending=$event" @source="showSource" @retain="retainAnswer"/>
@@ -88,6 +88,7 @@ onBeforeRouteUpdate(guard)
           </div>
         </aside>
       </div>
+      <button :class="['assistant-launcher',{'is-open':panel==='assistant','has-pending':assistantPending}]" :aria-expanded="panel==='assistant'" aria-controls="meeting-ai-panel" @click="toggleAssistant"><AppIcon name="sparkle" :size="17"/><span>{{assistantPending?'AI가 생각 중':panel==='assistant'?'AI 닫기':'AI 도우미'}}</span><b v-if="assistantPending">{{assistantPending}}</b></button>
       <AppDialog :open="leaving" title="회의에서 나갈까요?" @close="decideLeave(false)">
         <p>{{leaveDescription(leaveState)}}</p><p v-if="assistantDraft" class="helper">회의 중 AI 답변과 작성 중인 질문은 이 화면에 임시로 남아 있어요. 이동하면 사라지고, 진행 중인 요청은 취소를 시도해요.</p><p v-if="summaryDraft" class="helper">AI 요약 초안도 사라져요. 남길 항목은 ‘남길 내용’에 먼저 저장해 주세요.</p><p v-if="dirty||outcomeDraft||manualDraft" class="helper">남길 내용이 있다면 돌아가서 먼저 저장해 주세요.</p>
         <label v-if="dirty" class="check"><input v-model="approved" type="checkbox" :disabled="busy||active">원문을 확인했습니다. 팀원에게 공유되는 서버에 저장합니다.</label><p v-if="dirty&&!saveLeave.available" class="helper">{{saveLeave.reason}}</p>

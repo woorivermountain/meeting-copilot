@@ -6,8 +6,7 @@ import java.net.URI;
 import java.net.http.*;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -27,10 +26,11 @@ final class GroqSpeechClient {
   @FunctionalInterface private interface Sender { HttpResponse<InputStream> send(HttpRequest request,HttpResponse.BodyHandler<InputStream> handler)throws IOException,InterruptedException; }
   GroqSpeechClient(ObjectMapper json,String key,String model,Transport transport,Duration timeout){this.json=json;this.key=key;this.model=model;this.transport=transport;this.timeout=timeout;}
   boolean configured(){return key.matches("[A-Za-z0-9_-]{16,256}")&&Set.of("whisper-large-v3-turbo","whisper-large-v3").contains(model);}
-  String transcribe(byte[] audio)throws IOException,InterruptedException{
+  String transcribe(byte[] audio)throws IOException,InterruptedException{return transcribe(audio,"");}
+  String transcribe(byte[] audio,String prompt)throws IOException,InterruptedException{
     if(!configured())throw failure(HttpStatus.SERVICE_UNAVAILABLE,"Groq API 키와 Whisper 모델 설정을 확인해 주세요. 다른 서비스로 전환하지 않았어요.");
     long deadline=System.nanoTime()+timeout.toNanos();
-    var result=transport.send(request(audio));
+    var result=transport.send(request(audio,prompt));
     try(var input=result.body()){
       if(result.statusCode()!=200)throw upstreamFailure(result.statusCode());
       byte[] response=readBounded(input,deadline);
@@ -40,9 +40,11 @@ final class GroqSpeechClient {
       return body.path("text").asText().trim();
     }
   }
-  HttpRequest request(byte[] audio)throws IOException{
+  HttpRequest request(byte[] audio)throws IOException{return request(audio,"");}
+  HttpRequest request(byte[] audio,String prompt)throws IOException{
     String boundary="moida-"+UUID.randomUUID();var bytes=new ByteArrayOutputStream();
     field(bytes,boundary,"model",model);field(bytes,boundary,"language","ko");field(bytes,boundary,"response_format","json");
+    String bounded=Objects.toString(prompt,"").replaceAll("[\\p{Cntrl}&&[^\\r\\n\\t]]","").trim();if(!bounded.isBlank())field(bytes,boundary,"prompt",bounded.substring(0,Math.min(360,bounded.length())));
     bytes.write(("--"+boundary+"\r\nContent-Disposition: form-data; name=\"file\"; filename=\"chunk.wav\"\r\nContent-Type: audio/wav\r\n\r\n").getBytes(StandardCharsets.UTF_8));
     bytes.write(audio);bytes.write(("\r\n--"+boundary+"--\r\n").getBytes(StandardCharsets.UTF_8));
     return HttpRequest.newBuilder(ENDPOINT).timeout(timeout).header("Authorization","Bearer "+key).header("Accept","application/json").header("Content-Type","multipart/form-data; boundary="+boundary).POST(HttpRequest.BodyPublishers.ofByteArray(bytes.toByteArray())).build();

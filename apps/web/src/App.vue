@@ -6,7 +6,7 @@ import { auth,authService } from './features/auth/AuthService'
 import AppIcon from './shared/ui/AppIcon.vue'
 const route=useRoute(),router=useRouter(),error=ref('')
 const inMeeting=computed(()=>route.path.startsWith('/meetings/'))
-const releaseVersion=`v${webPackage.version}`,releaseLabel='1차 테스트 반영본'
+const releaseVersion=`v${webPackage.version}`,releaseLabel='2차 맥락 개선본'
 async function logout(){try{await authService.logout();await router.push('/login')}catch(e){error.value=(e as Error).message}}
 </script>
 <template>

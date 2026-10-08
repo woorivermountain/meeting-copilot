@@ -1,6 +1,7 @@
 package com.moida.copilot.meeting.application;
 
 import com.moida.copilot.transcription.domain.Transcript.Segment;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -31,6 +32,39 @@ public final class MeetingContext {
     public AdvisorFrame {
       lenses = List.copyOf(lenses);
     }
+  }
+
+  /** A deterministic whole-meeting brief. It costs no LLM tokens and never replaces evidence. */
+  public record BriefItem(String signal,UUID sourceId,OffsetDateTime receivedAt,String text) {}
+
+  public record MeetingBrief(
+      List<String> topics,
+      List<BriefItem> keyMoments,
+      List<BriefItem> recentThread,
+      int substantiveSegments,
+      int totalSegments) {
+    public MeetingBrief {
+      topics=List.copyOf(topics);
+      keyMoments=List.copyOf(keyMoments);
+      recentThread=List.copyOf(recentThread);
+    }
+    public Map<String,Object> payload() {
+      var out=new LinkedHashMap<String,Object>();
+      out.put("kind","DETERMINISTIC_MEETING_BRIEF");
+      out.put("instruction","Use this to understand the whole flow, then verify every factual claim against cited source text.");
+      out.put("topics",topics);
+      out.put("keyMoments",keyMoments);
+      out.put("recentThread",recentThread);
+      out.put("substantiveSegments",substantiveSegments);
+      out.put("totalSegments",totalSegments);
+      out.put("llmTokensUsed",0);
+      return out;
+    }
+  }
+
+  /** A retrieval hint only. The user's original question is never rewritten. */
+  public record TermCorrection(String original,String suggested,int occurrences,List<UUID> sourceIds) {
+    public TermCorrection {sourceIds=List.copyOf(sourceIds);}
   }
 
   private static final Set<String> STOP_WORDS = Set.of(
@@ -70,7 +104,9 @@ public final class MeetingContext {
       Depth depth,
       int budget,
       int droppedLowInformation,
-      AdvisorFrame advisor) {
+      AdvisorFrame advisor,
+      MeetingBrief meetingBrief,
+      List<TermCorrection> queryCorrections) {
     public Selection {
       segments = List.copyOf(segments);
       var copied = new LinkedHashMap<UUID,List<String>>();
@@ -78,6 +114,7 @@ public final class MeetingContext {
       annotations = Collections.unmodifiableMap(copied);
       inferredNeeds = List.copyOf(inferredNeeds);
       queryTerms = List.copyOf(queryTerms);
+      queryCorrections = List.copyOf(queryCorrections);
     }
 
     /** JSON-ready context envelope. Original segment IDs remain the only transcript citations. */
@@ -87,6 +124,10 @@ public final class MeetingContext {
       out.put("meeting", Map.of("title", meetingTitle, "status", meetingStatus, "revision", revision));
       out.put("inferredNeeds", inferredNeeds);
       out.put("queryTerms", queryTerms);
+      out.put("queryInterpretation",Map.of(
+          "originalQuestionPreserved",true,
+          "corrections",queryCorrections,
+          "instruction","Corrections are retrieval hints. Do not silently change the user's meaning; mention ambiguity when it matters."));
       out.put("responseDepth", depth.name());
       out.put("contextBudgetCharacters", budget);
       out.put("droppedLowInformation", droppedLowInformation);
@@ -94,6 +135,7 @@ public final class MeetingContext {
           "role", advisor.role(),
           "objective", advisor.objective(),
           "lenses", advisor.lenses()));
+      out.put("meetingBrief",meetingBrief.payload());
       var annotated = new ArrayList<Map<String,Object>>();
       for (var segment : segments) {
         var item = new LinkedHashMap<String,Object>();
@@ -142,15 +184,20 @@ public final class MeetingContext {
   }
 
   public static Selection assemble(List<Segment> input,String question,Depth requestedDepth) {
-    var profile = profile(question);
+    var baseProfile=profile(question);
+    var corrections=queryCorrections(input,baseProfile);
+    var retrievalTerms=new LinkedHashSet<>(baseProfile.queryTerms);
+    corrections.forEach(value->retrievalTerms.add(value.suggested()));
+    var profile=new Profile(baseProfile.lowerQuestion,List.copyOf(retrievalTerms),baseProfile.intents);
+    var brief=brief(input);
     var depth=requestedDepth==null?Depth.FOCUSED:requestedDepth;
     var policy=depth==Depth.EXPANDED
         ?new BudgetPolicy(BUDGET,MAX_SEGMENTS,3200,28,18,2)
         :new BudgetPolicy(FOCUSED_BUDGET,FOCUSED_MAX_SEGMENTS,1800,16,10,1);
     int droppedLowInformation=(int)input.stream().filter(MeetingContext::isLowInformation).count();
     if (input.isEmpty()) return new Selection(
-        List.of(),Map.of(),intentNames(profile.intents),profile.queryTerms,"layered-context-v3",
-        depth,policy.chars(),0,advisor(profile,List.of()));
+        List.of(),Map.of(),intentNames(profile.intents),profile.queryTerms,"layered-context-v4",
+        depth,policy.chars(),0,advisor(profile,List.of()),brief,corrections);
 
     var candidates = new HashMap<Integer,Candidate>();
     int recentChars = 0,recentCount = 0,recentScanned=0;
@@ -209,8 +256,45 @@ public final class MeetingContext {
     var annotations=new LinkedHashMap<UUID,List<String>>();
     for (int index:chronological) annotations.put(input.get(index).id(),candidates.get(index).roles.stream().map(Role::name).toList());
     return new Selection(
-        selected,annotations,intentNames(profile.intents),profile.queryTerms,"layered-context-v3",
-        depth,policy.chars(),droppedLowInformation,advisor(profile,selected));
+        selected,annotations,intentNames(profile.intents),profile.queryTerms,"layered-context-v4",
+        depth,policy.chars(),droppedLowInformation,advisor(profile,selected),brief,corrections);
+  }
+
+  /** Builds a small whole-meeting map without an LLM call. */
+  public static MeetingBrief brief(List<Segment> input) {
+    var substantive=new ArrayList<Segment>();
+    var topicStats=new HashMap<String,int[]>();
+    var signalTerms=new HashSet<String>();
+    for(var intent:Intent.values()) for(var term:intent.terms) signalTerms.add(stripParticle(term));
+    for(int index=0;index<input.size();index++) {
+      var segment=input.get(index);
+      if(isLowInformation(segment)) continue;
+      substantive.add(segment);
+      var unique=new LinkedHashSet<>(words(segment.text()));
+      for(var term:unique) {
+        if(term.length()<2||STOP_WORDS.contains(term)||signalTerms.contains(term)||term.chars().allMatch(Character::isDigit)) continue;
+        var stat=topicStats.computeIfAbsent(term,ignored->new int[]{0,0});
+        stat[0]++;stat[1]=index;
+      }
+    }
+    var topics=topicStats.entrySet().stream()
+        .sorted(Comparator.<Map.Entry<String,int[]>>comparingInt(e->e.getValue()[0]).reversed()
+            .thenComparing(Comparator.<Map.Entry<String,int[]>>comparingInt(e->e.getValue()[1]).reversed()))
+        .limit(8).map(Map.Entry::getKey).toList();
+
+    var moments=new ArrayList<BriefItem>();var signalCounts=new HashMap<String,Integer>();
+    for(int index=input.size()-1;index>=0;index--) {
+      var segment=input.get(index);if(isLowInformation(segment))continue;
+      for(var signal:stateSignals(segment.text())) {
+        if(signalCounts.getOrDefault(signal,0)>=2)continue;
+        moments.add(new BriefItem(signal,segment.id(),segment.receivedAt(),clip(segment.text(),240)));
+        signalCounts.merge(signal,1,Integer::sum);
+      }
+    }
+    Collections.reverse(moments);
+    var recent=substantive.stream().skip(Math.max(0,substantive.size()-5L))
+        .map(segment->new BriefItem("RECENT",segment.id(),segment.receivedAt(),clip(segment.text(),240))).toList();
+    return new MeetingBrief(topics,moments,recent,substantive.size(),input.size());
   }
 
   /** Query-aware score used for both transcript candidates and document candidates. */
@@ -268,8 +352,70 @@ public final class MeetingContext {
     for (var raw:lower.split("[^\\p{L}\\p{N}]+")) {
       String term=stripParticle(raw);
       if (term.length()>1&&!STOP_WORDS.contains(raw)&&!STOP_WORDS.contains(term)) terms.add(term);
+      if(terms.size()>=64)break;
     }
     return new Profile(lower,List.copyOf(terms),intents);
+  }
+
+  private static List<TermCorrection> queryCorrections(List<Segment> input,Profile profile) {
+    if(input.isEmpty()||profile.queryTerms.isEmpty())return List.of();
+    var vocabulary=new LinkedHashMap<String,List<UUID>>();
+    for(int index=input.size()-1;index>=0;index--)for(var term:new LinkedHashSet<>(words(input.get(index).text()))) {
+      if(term.length()<3||STOP_WORDS.contains(term)||term.chars().allMatch(Character::isDigit))continue;
+      if(!vocabulary.containsKey(term)&&vocabulary.size()>=4000)continue;
+      vocabulary.computeIfAbsent(term,ignored->new ArrayList<>()).add(input.get(index).id());
+    }
+    var corrections=new ArrayList<TermCorrection>();
+    for(var original:profile.queryTerms) {
+      if(original.length()<3||vocabulary.containsKey(original))continue;
+      String best=null;int bestDistance=Integer.MAX_VALUE,bestCount=-1;
+      for(var candidate:vocabulary.entrySet()) {
+        String term=candidate.getKey();int lengthGap=Math.abs(original.length()-term.length());
+        int allowed=original.length()<=4?1:2;
+        if(lengthGap>allowed)continue;
+        int distance=levenshtein(original,term,allowed);
+        if(distance>allowed||distance==0)continue;
+        int count=candidate.getValue().size();
+        if(distance<bestDistance||(distance==bestDistance&&count>bestCount)) {best=term;bestDistance=distance;bestCount=count;}
+      }
+      if(best!=null) {
+        var ids=vocabulary.get(best).stream().distinct().limit(4).toList();
+        corrections.add(new TermCorrection(original,best,vocabulary.get(best).size(),ids));
+        if(corrections.size()>=8)break;
+      }
+    }
+    return List.copyOf(corrections);
+  }
+
+  private static List<String> words(String value) {
+    var words=new ArrayList<String>();
+    for(var raw:Objects.toString(value,"").toLowerCase(Locale.ROOT).split("[^\\p{L}\\p{N}]+")) {
+      var term=stripParticle(raw);
+      if(!term.isBlank())words.add(term);
+    }
+    return words;
+  }
+
+  /** Bounded Levenshtein: stops work once no cell can remain within maxDistance. */
+  private static int levenshtein(String left,String right,int maxDistance) {
+    if(Math.abs(left.length()-right.length())>maxDistance)return maxDistance+1;
+    var previous=new int[right.length()+1];for(int j=0;j<=right.length();j++)previous[j]=j;
+    for(int i=1;i<=left.length();i++) {
+      var current=new int[right.length()+1];current[0]=i;int rowMin=current[0];
+      for(int j=1;j<=right.length();j++) {
+        int cost=left.charAt(i-1)==right.charAt(j-1)?0:1;
+        current[j]=Math.min(Math.min(current[j-1]+1,previous[j]+1),previous[j-1]+cost);
+        rowMin=Math.min(rowMin,current[j]);
+      }
+      if(rowMin>maxDistance)return maxDistance+1;
+      previous=current;
+    }
+    return previous[right.length()];
+  }
+
+  private static String clip(String value,int max) {
+    String normalized=Objects.toString(value,"").replaceAll("\\s+"," ").trim();
+    return normalized.length()<=max?normalized:normalized.substring(0,max-1)+"…";
   }
 
   private static String stripParticle(String value) {

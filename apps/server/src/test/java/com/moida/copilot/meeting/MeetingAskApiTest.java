@@ -28,6 +28,8 @@ class MeetingAskApiTest {
     String meeting=id(mvc.perform(post("/api/teams/"+team+"/meetings").session(owner).with(csrf()).contentType("application/json").content("{\"title\":\"합성 회의\"}")).andReturn());
     String endpoint="/api/meetings/"+meeting+"/ask",source=UUID.randomUUID().toString();
     var payload=new HashMap<String,Object>(Map.of("question","출시 언제?","approved",true,"segments",List.of(Map.of("id",source,"receivedAt","2026-10-07T01:00:00Z","text","출시는 금요일입니다."))));
+    mvc.perform(post(endpoint+"/context").session(owner).with(csrf()).contentType("application/json").content(json.writeValueAsString(Map.of("segments",payload.get("segments"))))).andExpect(status().isOk()).andExpect(jsonPath("brief.kind").value("DETERMINISTIC_MEETING_BRIEF")).andExpect(jsonPath("llmTokensUsed").value(0));
+    mvc.perform(post(endpoint+"/context").session(outsider).with(csrf()).contentType("application/json").content(json.writeValueAsString(Map.of("segments",payload.get("segments"))))).andExpect(status().isForbidden());
     when(llm.completeApproved(anyList(),anyList(),anyBoolean())).thenReturn(json.createObjectNode().put("content",json.writeValueAsString(Map.of("answer","금요일입니다.","sourceIds",List.of(source)))));
     mvc.perform(post(endpoint).session(owner).contentType("application/json").content(json.writeValueAsString(payload))).andExpect(status().isForbidden());
     mvc.perform(post(endpoint).session(outsider).with(csrf()).contentType("application/json").content(json.writeValueAsString(payload))).andExpect(status().isForbidden());

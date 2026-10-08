@@ -6,7 +6,7 @@ import AppIcon from '../../shared/ui/AppIcon.vue'
 const props=defineProps<{meeting:string;members:Member[]}>(),emit=defineEmits<{draft:[boolean];busy:[boolean]}>()
 const items=ref<Outcome[]>([]),kind=ref('DECISION'),text=ref(''),owner=ref(''),due=ref(''),approved=ref(false),busy=ref(false),error=ref(''),adding=ref(false),loading=ref(true)
 const labels={DECISION:'함께 정한 내용',ACTION:'이어서 할 일',ISSUE:'더 살펴볼 내용'}
-function prepareDraft(value:string){if(text.value.trim()||owner.value||due.value)return false;kind.value='ISSUE';text.value=value;approved.value=false;adding.value=true;return true}
+function prepareDraft(value:string,suggestedKind='ISSUE'){if(text.value.trim()||owner.value||due.value)return false;kind.value=['DECISION','ACTION','ISSUE'].includes(suggestedKind)?suggestedKind:'ISSUE';text.value=value;approved.value=false;adding.value=true;return true}
 defineExpose({prepareDraft})
 watch(computed(()=>!!text.value.trim()||!!owner.value||!!due.value),value=>emit('draft',value))
 watch(busy,value=>emit('busy',value))

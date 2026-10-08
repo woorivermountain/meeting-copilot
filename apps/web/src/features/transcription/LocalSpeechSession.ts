@@ -17,7 +17,7 @@ export class LocalSpeechSession {
   private hasSpeech=false;private silenceSamples=0;private lastRequestAt=-Infinity
   private pacingTimer?:ReturnType<typeof setTimeout>;private releasePacing?:()=>void
   private controller=new AbortController();private sequence=0;private id=crypto.randomUUID();private token?:{headerName:string;token:string}
-  constructor(private team:string,private change:(state:SpeechState)=>void,private final:(text:string)=>void,private externalApproved=false,private provider:SpeechProvider='local',private diagnostic?:(value:SpeechDiagnostic)=>void,private maxSeconds:4|8=4){}
+  constructor(private team:string,private change:(state:SpeechState)=>void,private final:(text:string)=>void,private externalApproved=false,private provider:SpeechProvider='local',private diagnostic?:(value:SpeechDiagnostic)=>void,private maxSeconds:4|8=4,private context?:()=>string){}
   private emit(status:SpeechState['status'],error=''){if(!this.disposed)this.change({status,error,audio:status==='listening',interim:'',phase:status==='listening'?(this.sending?'processing':'capturing'):status==='stopping'?'processing':undefined})}
   async start(stream:MediaStream){
     this.emit('starting')
@@ -60,7 +60,7 @@ export class LocalSpeechSession {
   }
   private async drain(){if(this.sending||this.disposed)return;this.sending=true;this.emit(this.stopped?'stopping':'listening')
     try{while(this.queue.length&&!this.disposed){await this.pace();if(this.disposed)break;const chunk=this.queue.shift()!,body=chunk.body,sequence=this.sequence++;this.lastRequestAt=performance.now();const startedAt=this.lastRequestAt;const timeout=setTimeout(()=>this.controller.abort(),45000)
-      try{const response=await fetch(`/api/teams/${encodeURIComponent(this.team)}/speech/transcribe`,{method:'POST',credentials:'same-origin',signal:this.controller.signal,headers:{'Content-Type':'audio/wav','X-Speech-Session':this.id,'X-Speech-Sequence':String(sequence),'X-Speech-External-Approved':String(this.externalApproved),'X-Speech-Provider':this.provider,[this.token!.headerName]:this.token!.token},body})
+      try{const headers:Record<string,string>={'Content-Type':'audio/wav','X-Speech-Session':this.id,'X-Speech-Sequence':String(sequence),'X-Speech-External-Approved':String(this.externalApproved),'X-Speech-Provider':this.provider,[this.token!.headerName]:this.token!.token};const prompt=this.provider==='groq'?this.context?.().trim().slice(0,360):'';if(prompt){const bytes=new TextEncoder().encode(prompt);headers['X-Speech-Context-B64']=btoa(String.fromCharCode(...bytes))}const response=await fetch(`/api/teams/${encodeURIComponent(this.team)}/speech/transcribe`,{method:'POST',credentials:'same-origin',signal:this.controller.signal,headers,body})
         const data=await response.json();if(!response.ok)throw new Error(data.message||'전사 서버에 연결하지 못했어요. 설정을 확인해 주세요.');if(data.sequence!==sequence)throw new Error('전사 응답 순서가 달라졌어요. 다시 시작해 주세요.');if(!this.disposed){this.diagnostic?.({audioSeconds:chunk.audioSeconds,rms:chunk.rms,clippedPercent:chunk.clippedPercent,split:chunk.split,queueWaitMs:startedAt-chunk.createdAt,responseMs:performance.now()-startedAt,empty:!data.text?.trim(),queued:this.queue.length});if(data.text)this.final(data.text)}
       }finally{clearTimeout(timeout)}
     }}catch(e){if(!this.disposed)this.fail(this.controller.signal.aborted?'전사 응답 시간이 초과됐어요. 서버 상태를 확인해 주세요.':e instanceof Error?e.message:'전사 연결이 끊겼어요. 다시 시작해 주세요.')}
