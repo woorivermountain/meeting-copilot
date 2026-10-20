@@ -1,0 +1,219 @@
+{
+  "origin": "https://meeting-copilot-woo.onrender.com",
+  "checked_at": "2026-10-20T05:22:32.307812+00:00",
+  "scope": "synthetic accounts and meeting only; not a real team meeting quality study",
+  "with_live_ai": true,
+  "with_synthetic_audio": true,
+  "checks": [
+    {
+      "check": "health",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "public login shell",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "public bundle /assets/index-DK_WP-0q.js",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "public bundle /assets/index-BJijkWXA.css",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "API requires login",
+      "passed": true,
+      "status": 401,
+      "expected_status": 401
+    },
+    {
+      "check": "signup",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "session restore",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "create team",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "create meeting",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "approved transcript save",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "stale transcript rejected",
+      "passed": true,
+      "status": 409,
+      "expected_status": 409
+    },
+    {
+      "check": "transcript history",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "unapproved outcome rejected",
+      "passed": true,
+      "status": 400,
+      "expected_status": 400
+    },
+    {
+      "check": "approved outcome saved",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "outcome status change",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "stale outcome rejected",
+      "passed": true,
+      "status": 409,
+      "expected_status": 409
+    },
+    {
+      "check": "second account",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "other team meeting blocked",
+      "passed": true,
+      "status": 403,
+      "expected_status": 403
+    },
+    {
+      "check": "other team knowledge blocked",
+      "passed": true,
+      "status": 403,
+      "expected_status": 403
+    },
+    {
+      "check": "knowledge box",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "approved document upload",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "agent assignment",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "knowledge workspace",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "external consent required",
+      "passed": true,
+      "status": 403,
+      "expected_status": 403
+    },
+    {
+      "check": "live provider summary",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "summary returns cited source",
+      "passed": true
+    },
+    {
+      "check": "meeting AI job accepted",
+      "passed": true,
+      "status": 202,
+      "expected_status": 202
+    },
+    {
+      "check": "live asynchronous meeting answer",
+      "passed": true,
+      "job_status": "COMPLETED",
+      "error": null
+    },
+    {
+      "check": "meeting answer cites source and its Friday deadline",
+      "passed": true
+    },
+    {
+      "check": "live knowledge agent",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "agent returns source citations",
+      "passed": true
+    },
+    {
+      "check": "synthetic Korean audio transcription",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "transcription contains synthetic reference words",
+      "passed": true,
+      "transcribed_text": "금요일까지 초안을 작성합니다."
+    },
+    {
+      "check": "meeting end",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "meeting trash",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    },
+    {
+      "check": "meeting restore",
+      "passed": true,
+      "status": 200,
+      "expected_status": 200
+    }
+  ],
+  "error": null
+}
