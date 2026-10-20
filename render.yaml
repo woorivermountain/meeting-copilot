@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: meeting-copilot-woo
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: codex/public-deploy-20261020
+    autoDeployTrigger: off
+    healthCheckPath: /api/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: PUBLIC_DEMO
+        value: "true"
+      - key: PUBLIC_LLM_CALLS_PER_DAY
+        value: "40"
+      - key: PUBLIC_SPEECH_CALLS_PER_DAY
+        value: "100"
+      - key: LLM_PROVIDER
+        value: deepseek
+      - key: STT_PROVIDER
+        value: groq
+      - key: DATABASE_HOST
+        fromDatabase:
+          name: meeting-copilot-db
+          property: host
+      - key: DATABASE_PORT
+        fromDatabase:
+          name: meeting-copilot-db
+          property: port
+      - key: DATABASE_NAME
+        fromDatabase:
+          name: meeting-copilot-db
+          property: database
+      - key: DATABASE_USER
+        fromDatabase:
+          name: meeting-copilot-db
+          property: user
+      - key: DATABASE_PASSWORD
+        fromDatabase:
+          name: meeting-copilot-db
+          property: password
+
+databases:
+  - name: meeting-copilot-db
+    postgresMajorVersion: "17"
+    plan: free
+    region: oregon
+    databaseName: meeting_copilot
+    user: meeting_copilot

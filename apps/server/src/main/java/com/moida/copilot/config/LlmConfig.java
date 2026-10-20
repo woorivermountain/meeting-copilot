@@ -7,7 +7,10 @@ import org.springframework.core.env.Environment;
 
 @Configuration
 public class LlmConfig {
-  @Bean LlmGateway llmGateway(ObjectMapper json, Environment env) {
+  @Bean LlmGateway configuredLlmGateway(ObjectMapper json, Environment env, ExternalRequestBudget budget) {
+    return new BudgetedLlmGateway(llmGateway(json,env),budget);
+  }
+  LlmGateway llmGateway(ObjectMapper json, Environment env) {
     String provider=env.getProperty("copilot.llm.provider","local");
     if(provider.equals("deepseek"))return new com.moida.copilot.llm.infrastructure.DeepSeekLlmGateway(json,env.getProperty("copilot.llm.deepseek.model","deepseek-flash"),env.getProperty("copilot.llm.deepseek.api-key",""));
     if(!provider.equals("local"))throw new IllegalArgumentException("LLM_PROVIDER must be local or deepseek");

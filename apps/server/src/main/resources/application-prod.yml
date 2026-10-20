@@ -1,11 +1,12 @@
 server:
   address: ${SERVER_ADDRESS:0.0.0.0}
+  forward-headers-strategy: framework
   servlet:
     session:
       cookie:
         secure: true
 spring:
   datasource:
-    url: ${DATABASE_URL}
+    url: ${DATABASE_URL:jdbc:postgresql://${DATABASE_HOST:localhost}:${DATABASE_PORT:5432}/${DATABASE_NAME:meeting_copilot}?sslmode=require}
     username: ${DATABASE_USER}
     password: ${DATABASE_PASSWORD}

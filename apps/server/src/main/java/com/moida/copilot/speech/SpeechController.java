@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import com.moida.copilot.config.ExternalRequestBudget;
 
 /** Explicit provider selection: no fallback and no audio persistence. */
 @RestController @RequestMapping("/api/teams/{team}/speech")
@@ -25,6 +26,7 @@ public class SpeechController {
   private final String provider,key,region,tier;
   private final GroqSpeechClient groq;
   private final Semaphore capacity=new Semaphore(2);
+  @Autowired(required=false) private ExternalRequestBudget publicBudget;
   public SpeechController(TeamService teams,ObjectMapper json,String url){this(teams,json,url,"local","","","");}
   public SpeechController(TeamService teams,ObjectMapper json,String url,String provider,String key,String region,String tier){this(teams,json,url,provider,key,region,tier,"","whisper-large-v3-turbo");}
   @Autowired public SpeechController(TeamService teams,ObjectMapper json,@Value("${STT_LOCAL_URL:http://127.0.0.1:8178}") String url,@Value("${STT_PROVIDER:local}") String provider,@Value("${AZURE_SPEECH_KEY:}") String key,@Value("${AZURE_SPEECH_REGION:}") String region,@Value("${AZURE_SPEECH_TIER:}") String tier,@Value("${GROQ_API_KEY:}") String groqKey,@Value("${GROQ_STT_MODEL:whisper-large-v3-turbo}") String groqModel){
@@ -61,11 +63,13 @@ public class SpeechController {
     try{
       if(provider.equals("groq")){
         teams.requireMember(team,UUID.fromString(auth.getName()),false);
+        if(publicBudget!=null)publicBudget.take("speech");
         String text=groq.transcribe(audio,speechContext(request));teams.requireMember(team,UUID.fromString(auth.getName()),false);
         return Map.of("text",text.substring(0,Math.min(4000,text.length())),"sequence",sequence);
       }
       if(provider.equals("azure")){
         teams.requireMember(team,UUID.fromString(auth.getName()),false);
+        if(publicBudget!=null)publicBudget.take("speech");
         var result=sendAzure(azureRequest(audio));
         try(var input=result.body()){
           if(result.statusCode()!=200)throw azureFailure(result.statusCode());
