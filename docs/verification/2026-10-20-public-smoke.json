@@ -1,6 +1,6 @@
 {
   "origin": "https://meeting-copilot-woo.onrender.com",
-  "checked_at": "2026-10-20T05:22:32.307812+00:00",
+  "checked_at": "2026-10-20T05:33:35.305586+00:00",
   "scope": "synthetic accounts and meeting only; not a real team meeting quality study",
   "with_live_ai": true,
   "with_synthetic_audio": true,
@@ -18,13 +18,13 @@
       "expected_status": 200
     },
     {
-      "check": "public bundle /assets/index-DK_WP-0q.js",
+      "check": "public bundle /assets/index-DN4K_UvB.js",
       "passed": true,
       "status": 200,
       "expected_status": 200
     },
     {
-      "check": "public bundle /assets/index-BJijkWXA.css",
+      "check": "public bundle /assets/index-DH2MvWVI.css",
       "passed": true,
       "status": 200,
       "expected_status": 200
