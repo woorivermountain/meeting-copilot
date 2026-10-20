@@ -3,7 +3,7 @@ WORKDIR /build/apps/web
 COPY apps/web/package*.json ./
 RUN npm ci --no-fund --no-audit
 COPY apps/web/ ./
-RUN npm run build
+RUN npm test && npm run build
 
 FROM maven:3.9-eclipse-temurin-21 AS server
 WORKDIR /build

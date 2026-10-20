@@ -78,6 +78,14 @@ try:
         summary,_=owner.expect('live provider summary',f'/api/meetings/{mid}/summary','POST',{'version':1,'approved':True,'externalApproved':True})
         assert summary.get('items'), 'No summary items'
         checks.append({'check':'summary returns cited source','passed':any(item.get('sources') for item in summary['items'])})
+        job,_=owner.expect('meeting AI job accepted',f'/api/meetings/{mid}/ask','POST',{'question':'초안은 언제까지 작성하나요?','approved':True,'externalApproved':True,'version':1,'knowledgeScope':'MEETING_ONLY'},status=202)
+        deadline=time.monotonic()+65
+        while job['status'] in ['QUEUED','RUNNING'] and time.monotonic()<deadline:
+            time.sleep(0.5)
+            _,job,_=owner.call(f'/api/meetings/{mid}/ask/{job["id"]}')
+        checks.append({'check':'live asynchronous meeting answer','passed':job.get('status')=='COMPLETED','job_status':job.get('status'),'error':job.get('error')})
+        result=job.get('result') or {}
+        checks.append({'check':'meeting answer cites source and its Friday deadline','passed':bool(result.get('sources')) and '금요일' in result.get('groundedAnswer','')})
         answer,_=owner.expect('live knowledge agent',knowledge+f'/agents/{agent["id"]}/ask','POST',{'question':'초안은 언제까지 작성하나요?','approved':True,'externalApproved':True})
         checks.append({'check':'agent returns source citations','passed':bool(answer.get('citations'))})
     if args.audio:
